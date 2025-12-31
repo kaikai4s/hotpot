@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Element Plus 子菜单内联样式覆盖 - 使用最高优先级，背景色与菜单项一致（transparent） */
+.el-sub-menu .el-menu.el-menu--inline,
+.el-sub-menu .el-menu.el-menu--inline[role="menu"],
+.el-sub-menu.sub-menu-custom .el-menu.el-menu--inline,
+aside .el-sub-menu .el-menu.el-menu--inline,
+aside .el-sub-menu.sub-menu-custom .el-menu.el-menu--inline,
+ul.el-menu.el-menu--inline[role="menu"] {
+  background: unset !important;
+  background-color: transparent !important;
+  --el-menu-bg-color: transparent !important;
+}
+
+.el-sub-menu .el-menu.el-menu--inline .el-menu-item,
+.el-sub-menu.sub-menu-custom .el-menu.el-menu--inline .el-menu-item,
+aside .el-sub-menu .el-menu.el-menu--inline .el-menu-item,
+aside .el-sub-menu.sub-menu-custom .el-menu.el-menu--inline .el-menu-item {
+  background-color: transparent !important;
+}
+

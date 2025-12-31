@@ -1,0 +1,65 @@
+# Laravel 依赖
+/vendor/
+/node_modules/
+
+# 环境配置
+/.env
+/.env.backup
+/.env.production
+/.env.local
+/.env.*.local
+
+# Laravel 存储
+/storage/*.key
+/storage/logs/
+/storage/framework/cache/
+/storage/framework/sessions/
+/storage/framework/views/
+/storage/app/public/
+
+# Laravel 生成文件
+/bootstrap/cache/*
+!/bootstrap/cache/.gitignore
+
+# 前端构建产物
+/public/build/
+/public/hot/
+
+# IDE 和编辑器
+/.idea/
+/.vscode/
+*.swp
+*.swo
+*~
+
+# 日志文件
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 临时文件
+*.tmp
+*.temp
+.cache/
+
+# 测试覆盖率
+/coverage/
+/.nyc_output/
+.phpunit.result.cache
+
+# 系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+Thumbs.db
+
+# 备份文件
+*.bak
+*.backup
+*.old
+
