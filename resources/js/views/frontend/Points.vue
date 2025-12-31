@@ -97,34 +97,155 @@
           <!-- 积分规则 -->
           <div class="bg-white rounded-xl shadow-md p-6">
             <h2 class="text-2xl font-bold text-gray-900 mb-6">积分规则</h2>
-            <div class="space-y-4">
-              <div class="flex items-start">
+            <div v-loading="loading" class="space-y-4">
+              <!-- 消费获得积分 -->
+              <div v-if="points.rules_info?.order_earn" class="flex items-start border-l-4 border-blue-500 pl-4 py-2">
                 <span class="text-2xl mr-3">💰</span>
-                <div>
-                  <h3 class="font-semibold text-gray-900 mb-1">消费获得积分</h3>
-                  <p class="text-gray-600">每消费1元获得1积分</p>
+                <div class="flex-1">
+                  <h3 class="font-semibold text-gray-900 mb-1">{{ points.rules_info.order_earn.name }}</h3>
+                  <p class="text-gray-600 mb-1">
+                    每消费1元获得{{ points.rules_info.order_earn.base_ratio || 1 }}积分
+                    <span v-if="points.level_info?.multiplier && points.level_info.multiplier > 1" class="text-orange-600 font-semibold">
+                      （当前等级{{ points.level_info.name }}享受{{ points.level_info.multiplier }}倍积分）
+                    </span>
+                  </p>
+                  <div v-if="points.rules_info.order_earn.min_amount" class="text-sm text-gray-500">
+                    最低消费金额：{{ points.rules_info.order_earn.min_amount }}元
+                  </div>
+                  <div v-if="points.rules_info.order_earn.max_points_per_order" class="text-sm text-gray-500">
+                    单次订单最高积分：{{ points.rules_info.order_earn.max_points_per_order }}积分
+                  </div>
                 </div>
               </div>
-              <div class="flex items-start">
+              
+              <!-- 评价获得积分 -->
+              <div v-if="points.rules_info?.review_earn" class="flex items-start border-l-4 border-green-500 pl-4 py-2">
                 <span class="text-2xl mr-3">💬</span>
-                <div>
-                  <h3 class="font-semibold text-gray-900 mb-1">评价获得积分</h3>
-                  <p class="text-gray-600">完成订单评价可获得50积分</p>
+                <div class="flex-1">
+                  <h3 class="font-semibold text-gray-900 mb-1">{{ points.rules_info.review_earn.name }}</h3>
+                  <p class="text-gray-600 mb-1">
+                    完成订单评价可获得{{ points.rules_info.review_earn.base_points || 50 }}积分
+                  </p>
+                  <div v-if="points.rules_info.review_earn.with_image_bonus" class="text-sm text-gray-500">
+                    带图评价额外奖励：{{ points.rules_info.review_earn.with_image_bonus }}积分
+                  </div>
+                  <div v-if="points.rules_info.review_earn.first_review_bonus" class="text-sm text-gray-500">
+                    首次评价额外奖励：{{ points.rules_info.review_earn.first_review_bonus }}积分
+                  </div>
                 </div>
               </div>
-              <div class="flex items-start">
+
+              <!-- 评价被采纳奖励 -->
+              <div v-if="points.rules_info?.review_adoption" class="flex items-start border-l-4 border-purple-500 pl-4 py-2">
+                <span class="text-2xl mr-3">🏆</span>
+                <div class="flex-1">
+                  <h3 class="font-semibold text-gray-900 mb-1">{{ points.rules_info.review_adoption.name }}</h3>
+                  <p class="text-gray-600">
+                    评价被采纳可获得{{ points.rules_info.review_adoption.base_points || 200 }}积分
+                  </p>
+                </div>
+              </div>
+
+              <!-- 积分兑换规则 -->
+              <div v-if="points.rules_info?.point_use" class="flex items-start border-l-4 border-orange-500 pl-4 py-2">
                 <span class="text-2xl mr-3">🎁</span>
-                <div>
-                  <h3 class="font-semibold text-gray-900 mb-1">积分兑换</h3>
-                  <p class="text-gray-600">100积分可兑换1元优惠券</p>
+                <div class="flex-1">
+                  <h3 class="font-semibold text-gray-900 mb-1">{{ points.rules_info.point_use.name }}</h3>
+                  <p class="text-gray-600 mb-1">
+                    {{ points.rules_info.point_use.use_ratio || 100 }}积分可兑换1元优惠券
+                  </p>
+                  <div v-if="points.rules_info.point_use.min_points" class="text-sm text-gray-500">
+                    最低兑换积分：{{ points.rules_info.point_use.min_points }}积分
+                  </div>
+                  <div v-if="points.rules_info.point_use.max_percent" class="text-sm text-gray-500">
+                    单次订单最多可使用订单金额的{{ points.rules_info.point_use.max_percent }}%
+                  </div>
                 </div>
               </div>
-              <div class="flex items-start">
-                <span class="text-2xl mr-3">⭐</span>
-                <div>
-                  <h3 class="font-semibold text-gray-900 mb-1">会员等级</h3>
-                  <p class="text-gray-600">积分累计达到一定数量可升级会员等级，享受更多优惠</p>
+
+              <!-- 积分过期规则 -->
+              <div v-if="points.rules_info?.point_expire" class="flex items-start border-l-4 border-red-500 pl-4 py-2">
+                <span class="text-2xl mr-3">⏰</span>
+                <div class="flex-1">
+                  <h3 class="font-semibold text-gray-900 mb-1">{{ points.rules_info.point_expire.name }}</h3>
+                  <p class="text-gray-600">
+                    积分有效期为{{ points.rules_info.point_expire.expire_days || 365 }}天，过期后自动失效
+                  </p>
                 </div>
+              </div>
+
+              <!-- 如果没有规则信息，显示默认提示 -->
+              <div v-if="!points.rules_info || Object.keys(points.rules_info).length === 0" class="text-center py-8 text-gray-500">
+                暂无积分规则信息
+              </div>
+            </div>
+          </div>
+
+          <!-- 会员等级规则 -->
+          <div class="bg-white rounded-xl shadow-md p-6">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">会员等级规则</h2>
+            <div v-loading="loadingLevels" class="space-y-4">
+              <div
+                v-for="level in pointLevels"
+                :key="level.id"
+                class="border-2 rounded-lg p-4 transition-all"
+                :class="level.code === points.level ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'"
+              >
+                <div class="flex items-start justify-between">
+                  <div class="flex items-start flex-1">
+                    <div v-if="level.icon" class="mr-3">
+                      <img
+                        :src="level.icon"
+                        :alt="level.name"
+                        class="w-10 h-10 object-contain"
+                        loading="lazy"
+                        @error="(e) => { (e.target as HTMLImageElement).style.display = 'none'; }"
+                      />
+                    </div>
+                    <div
+                      v-else-if="level.color"
+                      class="w-10 h-10 rounded-full mr-3 flex items-center justify-center text-white font-bold"
+                      :style="{ backgroundColor: level.color }"
+                    >
+                      {{ level.name.charAt(0) }}
+                    </div>
+                    <div class="flex-1">
+                      <div class="flex items-center gap-2 mb-1">
+                        <h3 class="font-bold text-lg" :style="level.color ? { color: level.color } : {}">
+                          {{ level.name }}
+                        </h3>
+                        <span v-if="level.code === points.level" class="px-2 py-1 bg-orange-500 text-white text-xs rounded">
+                          当前等级
+                        </span>
+                      </div>
+                      <p class="text-gray-600 mb-2">
+                        累计积分达到 <span class="font-semibold text-orange-600">{{ level.min_points.toLocaleString() }}</span> 分
+                      </p>
+                      <div v-if="level.description" class="text-sm text-gray-500 mb-2">
+                        {{ level.description }}
+                      </div>
+                      <div v-if="level.discount_type !== 'none'" class="text-sm">
+                        <span class="text-gray-600">会员权益：</span>
+                        <span v-if="level.discount_type === 'percentage'" class="text-green-600 font-semibold">
+                          订单享受{{ level.discount_value }}%折扣
+                          <span v-if="level.max_discount_amount">（最高{{ level.max_discount_amount }}元）</span>
+                        </span>
+                        <span v-else-if="level.discount_type === 'fixed'" class="text-green-600 font-semibold">
+                          订单满{{ level.min_order_amount }}元可减免{{ level.discount_value }}元
+                        </span>
+                        <span v-if="level.multiplier && level.multiplier > 1" class="text-orange-600 font-semibold ml-2">
+                          （积分{{ level.multiplier }}倍奖励）
+                        </span>
+                      </div>
+                      <div v-else class="text-sm text-gray-500">
+                        暂无特殊权益
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-if="pointLevels.length === 0 && !loadingLevels" class="text-center py-8 text-gray-500">
+                暂无等级规则信息
               </div>
             </div>
           </div>
@@ -185,7 +306,7 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import FrontendLayout from '../../components/frontend/FrontendLayout.vue';
 import { userAuthApi } from '../../api/auth';
-import { frontendPointsApi, frontendCouponApi, type FrontendMemberPoint, type FrontendPointTransaction, type FrontendCoupon } from '../../api/frontend-points';
+import { frontendPointsApi, frontendCouponApi, type FrontendMemberPoint, type FrontendPointTransaction, type FrontendCoupon, type FrontendLevelInfo } from '../../api/frontend-points';
 
 const router = useRouter();
 
@@ -205,6 +326,8 @@ const points = ref<FrontendMemberPoint>({
 
 const pointTransactions = ref<FrontendPointTransaction[]>([]);
 const availableCoupons = ref<FrontendCoupon[]>([]);
+const pointLevels = ref<FrontendLevelInfo[]>([]);
+const loadingLevels = ref(false);
 
 const levelDisplay = computed(() => {
   // 优先使用后台返回的段位名称
@@ -299,6 +422,26 @@ const fetchAvailableCoupons = async () => {
   }
 };
 
+const fetchPointLevels = async () => {
+  loadingLevels.value = true;
+  try {
+    const response = await frontendPointsApi.getLevels();
+    console.log('等级列表API响应:', response);
+    if (response.code === 200 && response.data) {
+      pointLevels.value = response.data.levels;
+      console.log('等级列表数据已更新，共', pointLevels.value.length, '个等级');
+    } else {
+      console.warn('等级列表API返回异常:', response);
+    }
+  } catch (error: any) {
+    console.error('获取等级列表失败:', error);
+    console.error('错误详情:', error.response?.data || error.message);
+    // 不显示错误提示，因为这不是关键功能
+  } finally {
+    loadingLevels.value = false;
+  }
+};
+
 const getTransactionTypeText = (type: string) => {
   const map: Record<string, string> = {
     earn: '获得积分',
@@ -382,6 +525,7 @@ onMounted(async () => {
       fetchPoints(),
       fetchPointTransactions(),
       fetchAvailableCoupons(),
+      fetchPointLevels(),
     ]);
     console.log('所有数据加载完成');
   } catch (error) {
