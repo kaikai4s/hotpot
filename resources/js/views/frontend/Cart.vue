@@ -88,11 +88,12 @@
                   size="large"
                   class="w-full"
                   filterable
+                  :key="`table-select-${availableTables.length}-${userInfo?.id || 'no-user'}`"
                   @change="handleTableChange"
                 >
                   <el-option
                     v-for="table in availableTables"
-                    :key="table.id"
+                    :key="`table-${table.id}-${userInfo?.id || 'no-user'}`"
                     :label="getTableLabel(table)"
                     :value="table.id"
                     :disabled="isTableDisabled(table)"
@@ -110,7 +111,7 @@
                           已预约
                         </el-tag>
                         <el-tag
-                          v-if="table.status === 'occupied' && (table.occupied_by_user_id === userInfo?.id || table.occupied_by_user?.id === userInfo?.id)"
+                          v-if="table.status === 'occupied' && isMyTable(table)"
                           type="success"
                           size="small"
                           class="ml-2"
@@ -218,7 +219,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Minus, Delete, DocumentCopy, UserFilled } from '@element-plus/icons-vue';
 import { useRouter } from 'vue-router';
@@ -323,24 +324,48 @@ const loadAvailableTables = async () => {
   loadingTables.value = true;
   try {
     // 确保用户信息已加载（如果未登录会静默失败，但不影响桌位加载）
-    if (!userInfo.value) {
+    if (!userInfo.value || !userInfo.value.id) {
       // 如果用户信息为空，先尝试从缓存加载
       const userInfoStr = localStorage.getItem('user_info');
-      if (userInfoStr) {
+      if (userInfoStr && userInfoStr !== '{}') {
         try {
-          userInfo.value = JSON.parse(userInfoStr);
+          const parsed = JSON.parse(userInfoStr);
+          // 验证缓存数据是否有效（不是空对象）
+          if (parsed && typeof parsed === 'object' && parsed.id) {
+            userInfo.value = parsed;
+            console.log('从缓存加载用户信息成功:', userInfo.value);
+          } else {
+            console.warn('缓存中的用户信息无效（空对象或缺少id）:', parsed);
+            // 清除无效缓存
+            localStorage.removeItem('user_info');
+          }
         } catch (e) {
           console.error('解析user_info失败:', e);
+          localStorage.removeItem('user_info');
         }
       }
       
-      // 如果缓存也没有，尝试从API获取（静默失败）
-      if (!userInfo.value) {
+      // 如果缓存也没有或无效，尝试从API获取
+      if (!userInfo.value || !userInfo.value.id) {
         try {
           const userResponse = await userAuthApi.me();
+          console.log('API返回的完整响应:', userResponse);
+          
+          // 后端返回结构是 {code: 200, message: 'success', data: {user: {...}}}
+          // 需要从 data.user 中获取用户信息
           if (userResponse && userResponse.code === 200 && userResponse.data) {
-            userInfo.value = userResponse.data;
-            localStorage.setItem('user_info', JSON.stringify(userResponse.data));
+            // 检查是否是嵌套结构 data.user
+            const userData = userResponse.data.user || userResponse.data;
+            
+            if (userData && userData.id) {
+              userInfo.value = userData;
+              localStorage.setItem('user_info', JSON.stringify(userData));
+              console.log('从API加载用户信息成功:', userInfo.value);
+            } else {
+              console.warn('API返回的用户信息无效（缺少id）:', { userResponse, userData });
+            }
+          } else {
+            console.warn('API返回的用户信息无效:', userResponse);
           }
         } catch (e) {
           // 静默失败，不影响桌位加载
@@ -349,9 +374,49 @@ const loadAvailableTables = async () => {
       }
     }
     
+    // 验证用户信息是否已正确加载
+    const currentUserId = getCurrentUserId();
+    if (!currentUserId) {
+      console.warn('警告：无法获取当前用户ID，occupied桌位将被禁用');
+    } else {
+      console.log('当前用户ID已确认:', currentUserId);
+    }
+    
     const response = await frontendTableApi.getAvailableTables();
     if (response.code === 200 && response.data) {
       availableTables.value = response.data.tables;
+      
+      // 调试日志：检查桌位和用户信息匹配情况（开发环境）
+      console.log('=== 桌位加载调试信息 ===');
+      console.log('当前用户ID:', userInfo.value?.id);
+      console.log('当前用户信息:', userInfo.value);
+      console.log('可用桌位列表:', response.data.tables);
+      
+      // 检查所有 occupied 状态的桌位
+      const occupiedTables = response.data.tables.filter((t: Table) => t.status === 'occupied');
+      console.log('所有occupied桌位:', occupiedTables.map((t: Table) => ({
+        name: t.name,
+        occupied_by_user_id: t.occupied_by_user_id,
+        occupied_by_user: t.occupied_by_user,
+        isMyTable: isMyTable(t),
+        isDisabled: isTableDisabled(t),
+      })));
+      
+      const a04Table = response.data.tables.find((t: Table) => t.name === 'A04');
+      if (a04Table) {
+        console.log('A04桌位详情:', {
+          id: a04Table.id,
+          name: a04Table.name,
+          status: a04Table.status,
+          occupied_by_user_id: a04Table.occupied_by_user_id,
+          occupied_by_user: a04Table.occupied_by_user,
+          userInfoId: userInfo.value?.id,
+          isMyTable: isMyTable(a04Table),
+          isDisabled: isTableDisabled(a04Table),
+        });
+      } else {
+        console.warn('A04桌位不在可用桌位列表中！');
+      }
     }
   } catch (error: any) {
     console.error('加载可用桌位失败:', error);
@@ -370,29 +435,97 @@ const getTableTypeName = (type: string) => {
   return typeMap[type] || type;
 };
 
-// 判断是否是当前用户的桌位
-const isMyTable = (table: Table) => {
-  if (!userInfo.value?.id) {
-    // 如果用户信息未加载，尝试从缓存获取
-    const userInfoStr = localStorage.getItem('user_info');
-    if (userInfoStr) {
-      try {
-        const cachedUserInfo = JSON.parse(userInfoStr);
-        if (cachedUserInfo?.id) {
-          // 使用缓存的用户ID进行判断
-          return table.occupied_by_user_id === cachedUserInfo.id || 
-                 table.occupied_by_user?.id === cachedUserInfo.id;
+// 判断是否是当前用户的桌位（使用 computed 确保响应式）
+const getCurrentUserId = (): number | null => {
+  // 优先使用响应式数据
+  if (userInfo.value?.id) {
+    const id = Number(userInfo.value.id);
+    if (!isNaN(id) && id > 0) {
+      return id;
+    }
+  }
+  
+  // 如果响应式数据为空，从缓存获取
+  const userInfoStr = localStorage.getItem('user_info');
+  if (userInfoStr && userInfoStr !== '{}' && userInfoStr.trim() !== '{}') {
+    try {
+      const cachedUserInfo = JSON.parse(userInfoStr);
+      // 检查是否是有效对象且有id字段（排除空对象）
+      if (cachedUserInfo && typeof cachedUserInfo === 'object' && Object.keys(cachedUserInfo).length > 0 && cachedUserInfo.id) {
+        const id = Number(cachedUserInfo.id);
+        if (!isNaN(id) && id > 0) {
+          // 同时更新响应式数据（如果为空）
+          if (!userInfo.value || !userInfo.value.id) {
+            userInfo.value = cachedUserInfo;
+          }
+          return id;
         }
-      } catch (e) {
-        console.error('解析缓存的user_info失败:', e);
       }
+    } catch (e) {
+      console.error('解析缓存的user_info失败:', e);
+    }
+  }
+  
+  return null;
+};
+
+const isMyTable = (table: Table) => {
+  const currentUserId = getCurrentUserId();
+  
+  // 如果没有用户ID，无法判断
+  if (!currentUserId) {
+    // 调试日志：只在开发环境或针对特定桌位输出
+    if (table.name === 'A04' || import.meta.env.DEV) {
+      console.warn('isMyTable: 无法获取用户ID', { 
+        table: table.name, 
+        userInfo: userInfo.value,
+        cachedUserInfo: (() => {
+          try {
+            const cached = localStorage.getItem('user_info');
+            return cached ? JSON.parse(cached) : null;
+          } catch {
+            return null;
+          }
+        })(),
+      });
     }
     return false;
   }
+  
   // 优先使用 occupied_by_user_id，如果没有则使用 occupied_by_user?.id
-  const userId = userInfo.value.id;
-  return table.occupied_by_user_id === userId || 
-         table.occupied_by_user?.id === userId;
+  // 确保类型一致（都转换为数字进行比较）
+  const tableUserId = table.occupied_by_user_id 
+    ? Number(table.occupied_by_user_id) 
+    : (table.occupied_by_user?.id ? Number(table.occupied_by_user.id) : null);
+  
+  if (!tableUserId) {
+    return false;
+  }
+  
+  const result = tableUserId === currentUserId;
+  
+  // 调试日志（开发环境或针对A04桌位）
+  if (table.name === 'A04' || import.meta.env.DEV) {
+    console.log('isMyTable判断:', {
+      tableName: table.name,
+      tableUserId,
+      currentUserId,
+      result,
+      tableOccupiedByUserId: table.occupied_by_user_id,
+      tableOccupiedByUser: table.occupied_by_user,
+      userInfoId: userInfo.value?.id,
+      userInfoFromCache: (() => {
+        try {
+          const cached = localStorage.getItem('user_info');
+          return cached ? JSON.parse(cached) : null;
+        } catch {
+          return null;
+        }
+      })(),
+    });
+  }
+  
+  return result;
 };
 
 // 获取桌位标签
@@ -414,8 +547,28 @@ const isTableDisabled = (table: Table) => {
     return false;
   }
   // occupied 状态：如果是当前用户使用的，可用（用于加菜）
-  if (table.status === 'occupied' && isMyTable(table)) {
-    return false;
+  if (table.status === 'occupied') {
+    const isMy = isMyTable(table);
+    // 调试日志（开发环境或针对A04桌位）
+    if (table.name === 'A04' || import.meta.env.DEV) {
+      console.log('isTableDisabled判断:', {
+        tableName: table.name,
+        status: table.status,
+        isMyTable: isMy,
+        disabled: !isMy,
+        tableOccupiedByUserId: table.occupied_by_user_id,
+        currentUserId: userInfo.value?.id,
+        userInfoFromCache: (() => {
+          try {
+            const cached = localStorage.getItem('user_info');
+            return cached ? JSON.parse(cached) : null;
+          } catch {
+            return null;
+          }
+        })(),
+      });
+    }
+    return !isMy; // 如果是我的桌位，返回 false（不禁用），否则返回 true（禁用）
   }
   // 其他情况禁用
   return true;
@@ -490,19 +643,38 @@ const handleJoinTeam = async () => {
 const loadUserInfo = async () => {
   try {
     const userInfoStr = localStorage.getItem('user_info');
-    if (userInfoStr) {
+    if (userInfoStr && userInfoStr !== '{}') {
       try {
-        userInfo.value = JSON.parse(userInfoStr);
+        const parsed = JSON.parse(userInfoStr);
+        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0 && parsed.id) {
+          userInfo.value = parsed;
+        } else {
+          localStorage.removeItem('user_info');
+        }
       } catch (e) {
         console.error('解析user_info失败:', e);
+        localStorage.removeItem('user_info');
       }
     }
     
     // 从服务器获取最新信息
     const response = await userAuthApi.me();
+    console.log('loadUserInfo - API返回的完整响应:', response);
+    
     if (response && response.code === 200 && response.data) {
-      userInfo.value = response.data;
-      localStorage.setItem('user_info', JSON.stringify(response.data));
+      // 后端返回结构是 {code: 200, message: 'success', data: {user: {...}}}
+      // 需要从 data.user 中获取用户信息
+      const userData = response.data.user || response.data;
+      
+      if (userData && userData.id) {
+        userInfo.value = userData;
+        localStorage.setItem('user_info', JSON.stringify(userData));
+        console.log('loadUserInfo - 用户信息加载成功:', userInfo.value);
+      } else {
+        console.warn('loadUserInfo - API返回的用户信息无效（缺少id）:', { response, userData });
+      }
+    } else {
+      console.warn('loadUserInfo - API返回的用户信息无效:', response);
     }
   } catch (error: any) {
     console.error('获取用户信息失败:', error);

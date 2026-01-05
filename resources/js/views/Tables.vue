@@ -250,6 +250,7 @@ import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'elem
 import { Plus, Delete } from '@element-plus/icons-vue';
 import type { Table } from '../types';
 import { tableApi, type CreateTableRequest } from '../api/table';
+import { userApi, type User } from '../api/user';
 import TableLayoutEditor from '../components/TableLayoutEditor.vue';
 
 const tables = ref<Table[]>([]);
@@ -408,7 +409,8 @@ const viewTable = (table: Table) => {
   };
   // 如果已有使用人，添加到选项列表
   if (table.occupied_by_user) {
-    userOptions.value = [table.occupied_by_user];
+    // 将 occupied_by_user 转换为完整的 User 类型
+    userOptions.value = [table.occupied_by_user as User];
   } else {
     userOptions.value = [];
   }
@@ -431,7 +433,8 @@ const resetTableForm = () => {
     };
     // 重置用户选项
     if (selectedTable.value.occupied_by_user) {
-      userOptions.value = [selectedTable.value.occupied_by_user];
+      // 将 occupied_by_user 转换为完整的 User 类型
+      userOptions.value = [selectedTable.value.occupied_by_user as User];
     } else {
       userOptions.value = [];
     }

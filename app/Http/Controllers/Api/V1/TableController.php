@@ -43,6 +43,17 @@ class TableController extends Controller
         $tables = $query->with('occupiedByUser:id,nickname')
             ->orderBy('name')
             ->get();
+        
+        // 调试日志：检查返回的桌位和用户信息
+        \Log::info('getAvailableTables', [
+            'user_id' => $user?->id,
+            'tables_count' => $tables->count(),
+            'occupied_tables' => $tables->where('status', 'occupied')->pluck('name')->toArray(),
+            'user_occupied_tables' => $tables->where('status', 'occupied')
+                ->where('occupied_by_user_id', $user?->id)
+                ->pluck('name')
+                ->toArray(),
+        ]);
 
         return response()->json([
             'code' => 200,
