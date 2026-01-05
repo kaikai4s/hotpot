@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Helpers\LoggerHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Configuration;
 use App\Models\User;
@@ -41,6 +42,11 @@ class AuthController extends Controller
                 $openid = 'mock_' . md5($code);
                 $nickname = '微信用户' . strtoupper(substr(md5($code), 0, 6));
                 $avatarUrl = null;
+                LoggerHelper::userDebug('使用模拟微信登录', [
+                    'code' => substr($code, 0, 10) . '...',
+                    'openid' => $openid,
+                    'login_mode' => $loginMode,
+                ]);
             } else {
                 // 真实微信登录流程
                 // 从配置中获取微信AppID和Secret
@@ -65,6 +71,10 @@ class AuthController extends Controller
                     curl_close($ch);
                     
                     if ($httpCode !== 200) {
+                        LoggerHelper::userError('微信API请求失败', [
+                            'http_code' => $httpCode,
+                            'app_id' => substr($appId, 0, 10) . '...',
+                        ]);
                         return response()->json([
                             'code' => 500,
                             'message' => '微信API请求失败',
@@ -74,6 +84,10 @@ class AuthController extends Controller
                     $tokenData = json_decode($tokenResponse, true);
                     
                     if (isset($tokenData['errcode'])) {
+                        LoggerHelper::userError('微信登录失败', [
+                            'errcode' => $tokenData['errcode'],
+                            'errmsg' => $tokenData['errmsg'] ?? '未知错误',
+                        ]);
                         return response()->json([
                             'code' => 400,
                             'message' => '微信登录失败：' . ($tokenData['errmsg'] ?? '未知错误'),
@@ -114,6 +128,21 @@ class AuthController extends Controller
                 ]
             );
             
+            if ($user->wasRecentlyCreated) {
+                LoggerHelper::userInfo('新用户注册', [
+                    'user_id' => $user->id,
+                    'openid' => $openid,
+                    'nickname' => $nickname,
+                    'invite_code' => $inviteCode,
+                ]);
+            } else {
+                LoggerHelper::userDebug('用户登录', [
+                    'user_id' => $user->id,
+                    'openid' => $openid,
+                    'nickname' => $nickname,
+                ]);
+            }
+            
             // 如果用户已存在，更新昵称和头像（如果微信返回了新信息）
             if (!$user->wasRecentlyCreated && isset($nickname)) {
                 $user->nickname = $nickname;
@@ -130,6 +159,11 @@ class AuthController extends Controller
                     $invitationService->registerWithInviteCode($user, $inviteCode);
                 } catch (\Exception $e) {
                     // 邀请码处理失败不影响登录，只记录日志
+                    LoggerHelper::userWarning('处理邀请码失败', [
+                        'user_id' => $user->id,
+                        'invite_code' => $inviteCode,
+                        'error' => $e->getMessage(),
+                    ]);
                     \Illuminate\Support\Facades\Log::warning('处理邀请码失败', [
                         'user_id' => $user->id,
                         'invite_code' => $inviteCode,
@@ -139,6 +173,12 @@ class AuthController extends Controller
             }
 
             $token = $user->createToken('wechat-web')->plainTextToken;
+
+            LoggerHelper::userInfo('用户登录成功', [
+                'user_id' => $user->id,
+                'nickname' => $user->nickname,
+                'is_new_user' => $user->wasRecentlyCreated,
+            ]);
 
             return response()->json([
                 'code' => 200,
@@ -153,6 +193,11 @@ class AuthController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
+            LoggerHelper::userError('微信登录失败', [
+                'code' => substr($code, 0, 10) . '...',
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json([
                 'code' => 500,
                 'message' => '微信登录失败：' . $e->getMessage(),
@@ -163,6 +208,19 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user();
+        
+        if (!$user) {
+            LoggerHelper::userWarning('获取用户信息失败：用户未登录');
+            return response()->json([
+                'code' => 401,
+                'message' => '未登录',
+            ], 401);
+        }
+        
+        LoggerHelper::userDebug('获取用户信息', [
+            'user_id' => $user->id,
+            'nickname' => $user->nickname,
+        ]);
         
         // 获取用户段位
         $memberPoint = $user->memberPoints;
@@ -198,8 +256,14 @@ class AuthController extends Controller
         $user = Auth::user();
         
         if ($user) {
+            LoggerHelper::userInfo('用户退出登录', [
+                'user_id' => $user->id,
+                'nickname' => $user->nickname,
+            ]);
             // 删除当前使用的token
             $user->currentAccessToken()?->delete();
+        } else {
+            LoggerHelper::userWarning('退出登录失败：用户未登录');
         }
 
         return response()->json([

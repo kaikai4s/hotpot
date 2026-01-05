@@ -8,13 +8,38 @@
     <div class="bg-white rounded-xl shadow-lg p-6">
       <div class="flex justify-between items-center mb-6">
         <div>
-          <h1 class="text-3xl font-bold text-gray-800 mb-2">评价管理</h1>
+          <div class="flex items-center gap-2 mb-2">
+            <h1 class="text-3xl font-bold text-gray-800">评价管理</h1>
+            <span v-if="unviewedCount > 0" class="bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">
+              {{ unviewedCount > 99 ? '99+' : unviewedCount }}
+            </span>
+          </div>
           <p class="text-gray-600">审核和管理用户评价，回复差评并追踪优化</p>
         </div>
-        <el-button type="primary" size="large" @click="refreshData">
-          <el-icon><Refresh /></el-icon>
-          刷新
-        </el-button>
+        <div class="flex gap-2">
+          <el-button 
+            v-if="selectedReviews.length > 0" 
+            type="success" 
+            size="large" 
+            @click="handleBatchMarkAsViewed"
+          >
+            <el-icon><Check /></el-icon>
+            一键查看 ({{ selectedReviews.length }})
+          </el-button>
+          <el-button 
+            v-if="selectedReviews.length > 0" 
+            type="danger" 
+            size="large" 
+            @click="handleBatchDelete"
+          >
+            <el-icon><Delete /></el-icon>
+            批量删除 ({{ selectedReviews.length }})
+          </el-button>
+          <el-button type="primary" size="large" @click="refreshData">
+            <el-icon><Refresh /></el-icon>
+            刷新
+          </el-button>
+        </div>
       </div>
 
       <!-- 筛选栏 -->
@@ -79,7 +104,9 @@
         stripe
         style="width: 100%"
         class="mb-4"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="user.nickname" label="用户" width="120">
           <template #default="{ row }">
@@ -357,7 +384,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Refresh, Check, Close, View, ChatDotRound, Star, Clock } from '@element-plus/icons-vue';
+import { Refresh, Check, Close, View, ChatDotRound, Star, Clock, Delete } from '@element-plus/icons-vue';
 import { adminReviewApi, type Review } from '../api/admin/review';
 import type { ReviewFilters } from '../api/review';
 
@@ -383,6 +410,9 @@ const showReplyDialogVisible = ref(false);
 const showTrackingDialogVisible = ref(false);
 const showDetailDialog = ref(false);
 const selectedReview = ref<Review | null>(null);
+const selectedReviews = ref<Review[]>([]);
+const unviewedCount = ref(0);
+const isManuallyUpdatingUnviewedCount = ref(false);
 const replyForm = ref({ reply: '' });
 const replyLoading = ref(false);
 const trackingForm = ref({
@@ -478,6 +508,11 @@ const fetchReviews = async () => {
     if (response.code === 200 && response.data) {
       reviews.value = response.data.reviews || [];
       pagination.value = response.data.pagination || null;
+      // 只有在没有手动更新的情况下才使用 API 返回的值
+      if (!isManuallyUpdatingUnviewedCount.value) {
+        unviewedCount.value = response.data.unviewed_count || 0;
+      }
+      isManuallyUpdatingUnviewedCount.value = false;
     } else {
       ElMessage.error(response.message || '获取评价列表失败');
       reviews.value = [];
@@ -630,6 +665,10 @@ const handleTrackingUpdate = async () => {
   }
 };
 
+const handleSelectionChange = (selection: Review[]) => {
+  selectedReviews.value = selection;
+};
+
 const viewDetail = async (review: Review) => {
   showDetailDialog.value = true;
   selectedReview.value = null;
@@ -638,14 +677,104 @@ const viewDetail = async (review: Review) => {
     const response = await adminReviewApi.getReview(review.id);
     if (response.code === 200 && response.data) {
       selectedReview.value = response.data;
-      // 查看详情时会自动标记为已查看（后端处理），刷新列表以更新查看状态和未查看数量
-      await fetchReviews();
+      // 更新列表中的查看状态
+      const index = reviews.value.findIndex(r => r.id === review.id);
+      if (index !== -1) {
+        reviews.value[index].is_viewed = true;
+        reviews.value[index].viewed_at = response.data.viewed_at;
+      }
+      // 更新未查看数量
+      if (!review.is_viewed) {
+        isManuallyUpdatingUnviewedCount.value = true;
+        unviewedCount.value = Math.max(0, unviewedCount.value - 1);
+        // 通知 App.vue 更新导航菜单中的红点（立即触发）
+        window.dispatchEvent(new CustomEvent('unviewed-count-changed', { detail: { type: 'reviews', count: unviewedCount.value } }));
+      }
     } else {
       ElMessage.error(response.message || '获取评价详情失败');
     }
   } catch (error: any) {
     console.error('获取评价详情失败:', error);
     ElMessage.error(error.response?.data?.message || error.message || '获取评价详情失败');
+  }
+};
+
+const handleBatchMarkAsViewed = async () => {
+  if (selectedReviews.value.length === 0) {
+    ElMessage.warning('请先选择要标记为已查看的评价');
+    return;
+  }
+
+  try {
+    const ids = selectedReviews.value.map(r => r.id);
+    const response = await adminReviewApi.markAsViewed(ids);
+    if (response.code === 200) {
+      ElMessage.success(response.message || '标记成功');
+      // 更新列表中的查看状态
+      selectedReviews.value.forEach(selected => {
+        const index = reviews.value.findIndex(r => r.id === selected.id);
+        if (index !== -1) {
+          reviews.value[index].is_viewed = true;
+          reviews.value[index].viewed_at = new Date().toISOString();
+        }
+      });
+      // 更新未查看数量
+      const markedCount = selectedReviews.value.filter(r => !r.is_viewed).length;
+      isManuallyUpdatingUnviewedCount.value = true;
+      unviewedCount.value = Math.max(0, unviewedCount.value - markedCount);
+      // 通知 App.vue 更新导航菜单中的红点（立即触发）
+      window.dispatchEvent(new CustomEvent('unviewed-count-changed', { detail: { type: 'reviews', count: unviewedCount.value } }));
+      // 清空选择
+      selectedReviews.value = [];
+    } else {
+      ElMessage.error(response.message || '标记失败');
+    }
+  } catch (error: any) {
+    console.error('批量标记为已查看失败:', error);
+    ElMessage.error(error.response?.data?.message || error.message || '标记失败');
+  }
+};
+
+const handleBatchDelete = async () => {
+  if (selectedReviews.value.length === 0) {
+    ElMessage.warning('请先选择要删除的评价');
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedReviews.value.length} 条评价吗？此操作不可恢复！`,
+      '确认删除',
+      {
+        confirmButtonText: '确认删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+
+    const ids = selectedReviews.value.map(r => r.id);
+    const response = await adminReviewApi.batchDelete(ids);
+    if (response.code === 200) {
+      ElMessage.success(response.message || '删除成功');
+      // 更新未查看数量（减去被删除的未查看评价数量）
+      const deletedUnviewedCount = selectedReviews.value.filter(r => !r.is_viewed).length;
+      isManuallyUpdatingUnviewedCount.value = true;
+      const newCount = Math.max(0, unviewedCount.value - deletedUnviewedCount);
+      unviewedCount.value = newCount;
+      // 通知 App.vue 更新导航菜单中的红点（立即触发）
+      window.dispatchEvent(new CustomEvent('unviewed-count-changed', { detail: { type: 'reviews', count: unviewedCount.value } }));
+      // 刷新列表（fetchReviews 会检查标志，不会覆盖手动更新的值）
+      await fetchReviews();
+      // 清空选择
+      selectedReviews.value = [];
+    } else {
+      ElMessage.error(response.message || '删除失败');
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('批量删除失败:', error);
+      ElMessage.error(error.response?.data?.message || error.message || '删除失败');
+    }
   }
 };
 

@@ -3,7 +3,12 @@
     <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
       <div class="flex justify-between items-center mb-6">
         <div>
-          <h1 class="text-3xl font-bold text-gray-800 mb-2">预约管理</h1>
+          <div class="flex items-center gap-2 mb-2">
+            <h1 class="text-3xl font-bold text-gray-800">预约管理</h1>
+            <span v-if="unviewedCount > 0" class="bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">
+              {{ unviewedCount > 99 ? '99+' : unviewedCount }}
+            </span>
+          </div>
           <p class="text-gray-600">管理和查看所有预约记录</p>
           <div class="mt-2">
             <el-tag :type="depositEnabled ? 'success' : 'info'" size="small">
@@ -11,10 +16,30 @@
             </el-tag>
           </div>
         </div>
-        <el-button type="primary" size="large" @click="refreshData">
-          <el-icon><Refresh /></el-icon>
-          刷新
-        </el-button>
+        <div class="flex gap-2">
+          <el-button 
+            v-if="selectedReservations.length > 0" 
+            type="success" 
+            size="large" 
+            @click="handleBatchMarkAsViewed"
+          >
+            <el-icon><Check /></el-icon>
+            一键查看 ({{ selectedReservations.length }})
+          </el-button>
+          <el-button 
+            v-if="selectedReservations.length > 0" 
+            type="danger" 
+            size="large" 
+            @click="handleBatchDelete"
+          >
+            <el-icon><Delete /></el-icon>
+            批量删除 ({{ selectedReservations.length }})
+          </el-button>
+          <el-button type="primary" size="large" @click="refreshData">
+            <el-icon><Refresh /></el-icon>
+            刷新
+          </el-button>
+        </div>
       </div>
 
       <!-- 筛选栏 -->
@@ -53,7 +78,9 @@
         style="width: 100%"
         class="mb-4"
         :row-class-name="tableRowClassName"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="reservation_code" label="预约编码" width="180" />
         <el-table-column prop="user.nickname" label="用户" width="120">
           <template #default="{ row }">
@@ -88,6 +115,12 @@
             <el-tag :type="getStatusType(row.status)" effect="dark">
               {{ getStatusText(row.status) }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="查看状态" width="100">
+          <template #default="{ row }">
+            <el-tag v-if="row.is_viewed" type="success" size="small">已查看</el-tag>
+            <el-tag v-else type="warning" size="small">未查看</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180">
@@ -272,7 +305,7 @@
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Refresh, View } from '@element-plus/icons-vue';
+import { Refresh, View, Check, Delete } from '@element-plus/icons-vue';
 import { useReservationStore } from '../stores/reservation';
 import { adminReservationApi } from '../api/admin/reservation';
 import { configApi } from '../api/config';
@@ -292,6 +325,9 @@ const detailDialogVisible = ref(false);
 const selectedReservation = ref<Reservation | null>(null);
 const loadingDetail = ref(false);
 const depositEnabled = ref<boolean>(true);
+const selectedReservations = ref<Reservation[]>([]);
+const unviewedCount = ref(0);
+const isManuallyUpdatingUnviewedCount = ref(false);
 
 const getStatusType = (status: string) => {
   const types: Record<string, string> = {
@@ -385,10 +421,23 @@ const viewDetail = async (reservation: Reservation) => {
   selectedReservation.value = reservation;
 
   try {
-    // 重新获取完整的预约详情
+    // 重新获取完整的预约详情（会自动标记为已查看）
     const response = await adminReservationApi.getDetail(reservation.id);
     if (response.code === 200 && response.data) {
       selectedReservation.value = response.data;
+      // 更新列表中的查看状态
+      const index = store.reservations.findIndex(r => r.id === reservation.id);
+      if (index !== -1) {
+        store.reservations[index].is_viewed = true;
+        store.reservations[index].viewed_at = response.data.viewed_at;
+      }
+      // 更新未查看数量
+      if (!reservation.is_viewed) {
+        isManuallyUpdatingUnviewedCount.value = true;
+        unviewedCount.value = Math.max(0, unviewedCount.value - 1);
+        // 通知 App.vue 更新导航菜单中的红点（立即触发）
+        window.dispatchEvent(new CustomEvent('unviewed-count-changed', { detail: { type: 'reservations', count: unviewedCount.value } }));
+      }
     }
   } catch (error: any) {
     console.error('获取预约详情失败:', error);
@@ -466,7 +515,90 @@ const loadDepositConfig = async () => {
   }
 };
 
-const fetchData = () => {
+const handleSelectionChange = (selection: Reservation[]) => {
+  selectedReservations.value = selection;
+};
+
+const handleBatchMarkAsViewed = async () => {
+  if (selectedReservations.value.length === 0) {
+    ElMessage.warning('请先选择要标记为已查看的预约');
+    return;
+  }
+
+  try {
+    const ids = selectedReservations.value.map(r => r.id);
+    const response = await adminReservationApi.markAsViewed(ids);
+    if (response.code === 200) {
+      ElMessage.success(response.message || '标记成功');
+      // 更新列表中的查看状态
+      selectedReservations.value.forEach(selected => {
+        const index = store.reservations.findIndex(r => r.id === selected.id);
+        if (index !== -1) {
+          store.reservations[index].is_viewed = true;
+          store.reservations[index].viewed_at = new Date().toISOString();
+        }
+      });
+      // 更新未查看数量
+      const markedCount = selectedReservations.value.filter(r => !r.is_viewed).length;
+      isManuallyUpdatingUnviewedCount.value = true;
+      unviewedCount.value = Math.max(0, unviewedCount.value - markedCount);
+      // 通知 App.vue 更新导航菜单中的红点（立即触发）
+      window.dispatchEvent(new CustomEvent('unviewed-count-changed', { detail: { type: 'reservations', count: unviewedCount.value } }));
+      // 清空选择
+      selectedReservations.value = [];
+    } else {
+      ElMessage.error(response.message || '标记失败');
+    }
+  } catch (error: any) {
+    console.error('批量标记为已查看失败:', error);
+    ElMessage.error(error.response?.data?.message || error.message || '标记失败');
+  }
+};
+
+const handleBatchDelete = async () => {
+  if (selectedReservations.value.length === 0) {
+    ElMessage.warning('请先选择要删除的预约');
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedReservations.value.length} 条预约吗？此操作不可恢复！`,
+      '确认删除',
+      {
+        confirmButtonText: '确认删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+
+    const ids = selectedReservations.value.map(r => r.id);
+    const response = await adminReservationApi.batchDelete(ids);
+    if (response.code === 200) {
+      ElMessage.success(response.message || '删除成功');
+      // 更新未查看数量（减去被删除的未查看预约数量）
+      const deletedUnviewedCount = selectedReservations.value.filter(r => !r.is_viewed).length;
+      isManuallyUpdatingUnviewedCount.value = true;
+      const newCount = Math.max(0, unviewedCount.value - deletedUnviewedCount);
+      unviewedCount.value = newCount;
+      // 通知 App.vue 更新导航菜单中的红点（立即触发）
+      window.dispatchEvent(new CustomEvent('unviewed-count-changed', { detail: { type: 'reservations', count: unviewedCount.value } }));
+      // 刷新列表
+      await fetchData();
+      // 清空选择
+      selectedReservations.value = [];
+    } else {
+      ElMessage.error(response.message || '删除失败');
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('批量删除失败:', error);
+      ElMessage.error(error.response?.data?.message || error.message || '删除失败');
+    }
+  }
+};
+
+const fetchData = async () => {
   // 检查是否有token，没有token则不调用API（使用 sessionStorage）
   const token = sessionStorage.getItem('admin_token');
   if (!token) {
@@ -474,12 +606,26 @@ const fetchData = () => {
     return;
   }
   
-  store.fetchReservations({
+  await store.fetchReservations({
     status: filters.value.status || undefined,
     date: filters.value.date || undefined,
     page: currentPage.value,
     page_size: store.pagination?.page_size || 20,
   });
+  
+  // 获取未查看数量
+  try {
+    const response = await adminReservationApi.getList({ page: 1, page_size: 1 });
+    if (response.code === 200 && response.data) {
+      // 只有在没有手动更新的情况下才使用 API 返回的值
+      if (!isManuallyUpdatingUnviewedCount.value) {
+        unviewedCount.value = response.data.unviewed_count || 0;
+      }
+      isManuallyUpdatingUnviewedCount.value = false;
+    }
+  } catch (error) {
+    console.error('获取未查看数量失败:', error);
+  }
 };
 
 onMounted(() => {

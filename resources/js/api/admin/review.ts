@@ -66,5 +66,19 @@ export const adminReviewApi = {
   addTrackingUpdate: (id: number, message: string) => {
     return adminApiClient.post<Review>(`/admin/v1/reviews/${id}/tracking-update`, { message });
   },
+
+  /**
+   * 批量标记为已查看
+   */
+  markAsViewed: (ids: number[]) => {
+    return adminApiClient.post<{ count: number }>('/admin/v1/reviews/mark-viewed', { ids });
+  },
+
+  /**
+   * 批量删除评价
+   */
+  batchDelete: (ids: number[]) => {
+    return adminApiClient.delete<{ count: number }>('/admin/v1/reviews/batch', { data: { ids } });
+  },
 };
 

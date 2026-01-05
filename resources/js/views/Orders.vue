@@ -8,13 +8,38 @@
     <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
       <div class="flex justify-between items-center mb-6">
         <div>
-          <h1 class="text-3xl font-bold text-gray-800 mb-2">订单管理</h1>
+          <div class="flex items-center gap-2 mb-2">
+            <h1 class="text-3xl font-bold text-gray-800">订单管理</h1>
+            <span v-if="unviewedCount > 0" class="bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">
+              {{ unviewedCount > 99 ? '99+' : unviewedCount }}
+            </span>
+          </div>
           <p class="text-gray-600">管理和查看所有订单记录</p>
         </div>
-        <el-button type="primary" size="large" @click="refreshData">
-          <el-icon><Refresh /></el-icon>
-          刷新
-        </el-button>
+        <div class="flex gap-2">
+          <el-button 
+            v-if="selectedOrders.length > 0" 
+            type="success" 
+            size="large" 
+            @click="handleBatchMarkAsViewed"
+          >
+            <el-icon><Check /></el-icon>
+            一键查看 ({{ selectedOrders.length }})
+          </el-button>
+          <el-button 
+            v-if="selectedOrders.length > 0" 
+            type="danger" 
+            size="large" 
+            @click="handleBatchDelete"
+          >
+            <el-icon><Delete /></el-icon>
+            批量删除 ({{ selectedOrders.length }})
+          </el-button>
+          <el-button type="primary" size="large" @click="refreshData">
+            <el-icon><Refresh /></el-icon>
+            刷新
+          </el-button>
+        </div>
       </div>
 
       <!-- 用户筛选提示 -->
@@ -90,7 +115,9 @@
         style="width: 100%"
         class="mb-4"
         :row-class-name="tableRowClassName"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="order_no" label="订单号" width="180" />
         <el-table-column prop="user.nickname" label="用户" width="120">
           <template #default="{ row }">
@@ -253,7 +280,7 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Refresh, View, InfoFilled } from '@element-plus/icons-vue';
+import { Refresh, View, InfoFilled, Check, Delete } from '@element-plus/icons-vue';
 import { adminOrderApi, type Order } from '../api/admin/order';
 
 const router = useRouter();
@@ -283,6 +310,9 @@ const dateRange = ref<[string, string] | null>(null);
 const currentPage = ref(1);
 const showDetailDialog = ref(false);
 const selectedOrder = ref<Order | null>(null);
+const selectedOrders = ref<Order[]>([]);
+const unviewedCount = ref(0);
+const isManuallyUpdatingUnviewedCount = ref(false);
 
 const getStatusType = (status: string) => {
   const types: Record<string, string> = {
@@ -410,6 +440,11 @@ const fetchData = async () => {
     if (response.code === 200 && response.data) {
       orders.value = response.data.orders || [];
       pagination.value = response.data.pagination || null;
+      // 只有在没有手动更新的情况下才使用 API 返回的值
+      if (!isManuallyUpdatingUnviewedCount.value) {
+        unviewedCount.value = response.data.unviewed_count || 0;
+      }
+      isManuallyUpdatingUnviewedCount.value = false;
     } else {
       ElMessage.error(response.message || '获取订单列表失败');
       orders.value = [];
@@ -426,20 +461,115 @@ const fetchData = async () => {
   }
 };
 
+const handleSelectionChange = (selection: Order[]) => {
+  selectedOrders.value = selection;
+};
+
 const viewDetail = async (order: Order) => {
   try {
     const response = await adminOrderApi.getOrder(order.id);
     if (response.code === 200 && response.data) {
       selectedOrder.value = response.data;
       showDetailDialog.value = true;
-      // 查看详情时会自动标记为已查看（后端处理），刷新列表以更新查看状态和未查看数量
-      await fetchData();
+      // 更新列表中的查看状态
+      const index = orders.value.findIndex(o => o.id === order.id);
+      if (index !== -1) {
+        orders.value[index].is_viewed = true;
+        orders.value[index].viewed_at = response.data.viewed_at;
+      }
+      // 更新未查看数量
+      if (!order.is_viewed) {
+        isManuallyUpdatingUnviewedCount.value = true;
+        unviewedCount.value = Math.max(0, unviewedCount.value - 1);
+        // 通知 App.vue 更新导航菜单中的红点（立即触发）
+        window.dispatchEvent(new CustomEvent('unviewed-count-changed', { detail: { type: 'orders', count: unviewedCount.value } }));
+      }
     } else {
       ElMessage.error(response.message || '获取订单详情失败');
     }
   } catch (error: any) {
     console.error('获取订单详情失败:', error);
     ElMessage.error(error.message || '获取订单详情失败');
+  }
+};
+
+const handleBatchMarkAsViewed = async () => {
+  if (selectedOrders.value.length === 0) {
+    ElMessage.warning('请先选择要标记为已查看的订单');
+    return;
+  }
+
+  try {
+    const ids = selectedOrders.value.map(o => o.id);
+    const response = await adminOrderApi.markAsViewed(ids);
+    if (response.code === 200) {
+      ElMessage.success(response.message || '标记成功');
+      // 更新列表中的查看状态
+      selectedOrders.value.forEach(selected => {
+        const index = orders.value.findIndex(o => o.id === selected.id);
+        if (index !== -1) {
+          orders.value[index].is_viewed = true;
+          orders.value[index].viewed_at = new Date().toISOString();
+        }
+      });
+      // 更新未查看数量
+      const markedCount = selectedOrders.value.filter(o => !o.is_viewed).length;
+      isManuallyUpdatingUnviewedCount.value = true;
+      const newCount = Math.max(0, unviewedCount.value - markedCount);
+      unviewedCount.value = newCount;
+      // 通知 App.vue 更新导航菜单中的红点（立即触发，不等待 fetchData）
+      window.dispatchEvent(new CustomEvent('unviewed-count-changed', { detail: { type: 'orders', count: unviewedCount.value } }));
+      // 清空选择
+      selectedOrders.value = [];
+    } else {
+      ElMessage.error(response.message || '标记失败');
+    }
+  } catch (error: any) {
+    console.error('批量标记为已查看失败:', error);
+    ElMessage.error(error.response?.data?.message || error.message || '标记失败');
+  }
+};
+
+const handleBatchDelete = async () => {
+  if (selectedOrders.value.length === 0) {
+    ElMessage.warning('请先选择要删除的订单');
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedOrders.value.length} 条订单吗？此操作不可恢复！`,
+      '确认删除',
+      {
+        confirmButtonText: '确认删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+
+    const ids = selectedOrders.value.map(o => o.id);
+    const response = await adminOrderApi.batchDelete(ids);
+    if (response.code === 200) {
+      ElMessage.success(response.message || '删除成功');
+      // 更新未查看数量（减去被删除的未查看订单数量）
+      const deletedUnviewedCount = selectedOrders.value.filter(o => !o.is_viewed).length;
+      isManuallyUpdatingUnviewedCount.value = true;
+      const newCount = Math.max(0, unviewedCount.value - deletedUnviewedCount);
+      unviewedCount.value = newCount;
+      // 通知 App.vue 更新导航菜单中的红点（立即触发）
+      window.dispatchEvent(new CustomEvent('unviewed-count-changed', { detail: { type: 'orders', count: unviewedCount.value } }));
+      // 刷新列表（fetchData 会检查标志，不会覆盖手动更新的值）
+      await fetchData();
+      // 清空选择
+      selectedOrders.value = [];
+    } else {
+      ElMessage.error(response.message || '删除失败');
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('批量删除失败:', error);
+      ElMessage.error(error.response?.data?.message || error.message || '删除失败');
+    }
   }
 };
 

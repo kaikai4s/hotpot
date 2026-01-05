@@ -65,10 +65,15 @@ Route::prefix('admin/v1')->group(function () {
         Route::get('/reservations/{id}', [ReservationController::class, 'show'])->middleware('permission:reservations.view');
         Route::post('/reservations/{id}/confirm', [ReservationController::class, 'confirm'])->middleware('permission:reservations.update');
         Route::post('/reservations/{id}/cancel', [ReservationController::class, 'cancel'])->middleware('permission:reservations.update');
+        Route::post('/reservations/mark-viewed', [ReservationController::class, 'markAsViewed'])->middleware('permission:reservations.update');
+        Route::delete('/reservations/batch', [ReservationController::class, 'batchDelete'])->middleware('permission:reservations.delete');
 
         // 定金管理
         Route::get('/deposits', [DepositController::class, 'index'])->middleware('permission:reservations.view');
+        Route::get('/deposits/{reservationId}', [DepositController::class, 'show'])->middleware('permission:reservations.view');
         Route::post('/deposits/{reservationId}/refund', [DepositController::class, 'refund'])->middleware('permission:reservations.update');
+        Route::post('/deposits/mark-viewed', [DepositController::class, 'markAsViewed'])->middleware('permission:reservations.update');
+        Route::delete('/deposits/batch', [DepositController::class, 'batchDelete'])->middleware('permission:reservations.delete');
 
         // 评价管理
         Route::get('/reviews', [ReviewController::class, 'index'])->middleware('permission:reviews.view');
@@ -78,6 +83,8 @@ Route::prefix('admin/v1')->group(function () {
         Route::post('/reviews/{reviewId}/adopt', [ReviewController::class, 'adopt'])->middleware('permission:reviews.adopt');
         Route::put('/reviews/{reviewId}/tracking', [ReviewController::class, 'updateTracking'])->middleware('permission:reviews.track');
         Route::post('/reviews/{reviewId}/tracking-update', [ReviewController::class, 'addTrackingUpdate'])->middleware('permission:reviews.track');
+        Route::post('/reviews/mark-viewed', [ReviewController::class, 'markAsViewed'])->middleware('permission:reviews.update');
+        Route::delete('/reviews/batch', [ReviewController::class, 'batchDelete'])->middleware('permission:reviews.delete');
 
         // 桌位管理
         Route::get('/tables', [TableController::class, 'index'])->middleware('permission:tables.view');
@@ -199,6 +206,8 @@ Route::prefix('admin/v1')->group(function () {
         Route::put('/orders/{id}/status', [OrderController::class, 'updateStatus'])->middleware('permission:orders.update');
         Route::post('/orders/{id}/cancel', [OrderController::class, 'cancel'])->middleware('permission:orders.update');
         Route::post('/orders/{id}/complete', [OrderController::class, 'complete'])->middleware('permission:orders.update');
+        Route::post('/orders/mark-viewed', [OrderController::class, 'markAsViewed'])->middleware('permission:orders.update');
+        Route::delete('/orders/batch', [OrderController::class, 'batchDelete'])->middleware('permission:orders.delete');
 
         // 操作日志管理
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->middleware('permission:audit_logs.view');

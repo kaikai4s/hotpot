@@ -40,6 +40,9 @@ class ReservationController extends Controller
         $pageSize = $request->input('page_size', 20);
         $reservations = $query->orderBy('created_at', 'desc')->paginate($pageSize, ['*'], 'page', $page);
 
+        // 统计未查看预约数量
+        $unviewedCount = Reservation::where('is_viewed', false)->count();
+
         return response()->json([
             'code' => 200,
             'data' => [
@@ -50,6 +53,7 @@ class ReservationController extends Controller
                     'total_count' => $reservations->total(),
                     'page_size' => $reservations->perPage(),
                 ],
+                'unviewed_count' => $unviewedCount,
             ],
         ]);
     }
@@ -63,6 +67,15 @@ class ReservationController extends Controller
             $reservation = Reservation::with(['user', 'table', 'order'])
                 ->findOrFail($reservationId);
 
+            // 标记为已查看
+            if (!$reservation->is_viewed) {
+                $reservation->update([
+                    'is_viewed' => true,
+                    'viewed_at' => now(),
+                ]);
+                $reservation->refresh();
+            }
+
             return response()->json([
                 'code' => 200,
                 'message' => '获取成功',
@@ -73,6 +86,82 @@ class ReservationController extends Controller
                 'code' => 404,
                 'message' => '预约不存在',
             ], 404);
+        }
+    }
+
+    /**
+     * 批量标记为已查看
+     */
+    public function markAsViewed(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer|exists:reservations,id',
+        ]);
+
+        try {
+            $count = Reservation::whereIn('id', $request->input('ids'))
+                ->where('is_viewed', false)
+                ->update([
+                    'is_viewed' => true,
+                    'viewed_at' => now(),
+                ]);
+
+            return response()->json([
+                'code' => 200,
+                'message' => "成功标记 {$count} 条预约为已查看",
+                'data' => [
+                    'count' => $count,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'code' => 500,
+                'message' => '操作失败：' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * 批量删除预约
+     */
+    public function batchDelete(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer|exists:reservations,id',
+        ]);
+
+        try {
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            $reservations = Reservation::whereIn('id', $request->input('ids'))->get();
+            $count = 0;
+
+            foreach ($reservations as $reservation) {
+                // 释放关联的桌位
+                if ($reservation->table) {
+                    $reservation->table->update(['status' => 'available']);
+                }
+                $reservation->delete();
+                $count++;
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return response()->json([
+                'code' => 200,
+                'message' => "成功删除 {$count} 条预约",
+                'data' => [
+                    'count' => $count,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return response()->json([
+                'code' => 500,
+                'message' => '删除失败：' . $e->getMessage(),
+            ], 500);
         }
     }
 

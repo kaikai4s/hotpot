@@ -27,9 +27,12 @@
             <el-icon><DataAnalysis /></el-icon>
             <span>仪表盘</span>
           </el-menu-item>
-          <el-menu-item index="/admin/reservations" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+          <el-menu-item index="/admin/reservations" class="mb-2 rounded-lg hover:bg-gray-700 transition-all relative">
             <el-icon><Calendar /></el-icon>
             <span>预约管理</span>
+            <span v-if="unviewedReservationsCount > 0" class="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+              {{ unviewedReservationsCount > 99 ? '99+' : unviewedReservationsCount }}
+            </span>
           </el-menu-item>
           <el-menu-item index="/admin/deposits" class="mb-2 rounded-lg hover:bg-gray-700 transition-all relative">
             <el-icon><Money /></el-icon>
@@ -169,7 +172,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, watch } from 'vue';
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Calendar, Star, DataAnalysis, Food, Grid, ArrowDown, User, SwitchButton, UserFilled, Lock, Setting, Ticket, ShoppingBag, Money, Document } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -177,6 +180,7 @@ import { adminAuthApi } from './api/admin';
 import { adminOrderApi } from './api/admin/order';
 import { adminDepositApi } from './api/admin/deposit';
 import { adminReviewApi } from './api/admin/review';
+import { adminReservationApi } from './api/admin/reservation';
 import type { AdminInfo } from './api/admin';
 
 const route = useRoute();
@@ -186,6 +190,7 @@ const adminInfo = ref<AdminInfo | null>(null);
 const unviewedOrdersCount = ref(0);
 const unviewedDepositsCount = ref(0);
 const unviewedReviewsCount = ref(0);
+const unviewedReservationsCount = ref(0);
 
 const isAdminRoute = computed(() => {
   // 后台路由统一以 /admin/ 开头（但排除 /admin/login）
@@ -293,11 +298,12 @@ const loadUnviewedCounts = async () => {
   }
 
   try {
-    // 并行加载三个统计
-    const [ordersRes, depositsRes, reviewsRes] = await Promise.allSettled([
+    // 并行加载四个统计
+    const [ordersRes, depositsRes, reviewsRes, reservationsRes] = await Promise.allSettled([
       adminOrderApi.getOrders({ page: 1, page_size: 1 }),
       adminDepositApi.getDeposits({ page: 1, page_size: 1 }),
       adminReviewApi.getReviews({ page: 1, page_size: 1 }),
+      adminReservationApi.getList({ page: 1, page_size: 1 }),
     ]);
 
     if (ordersRes.status === 'fulfilled' && ordersRes.value.code === 200) {
@@ -310,6 +316,10 @@ const loadUnviewedCounts = async () => {
 
     if (reviewsRes.status === 'fulfilled' && reviewsRes.value.code === 200) {
       unviewedReviewsCount.value = reviewsRes.value.data?.unviewed_count || 0;
+    }
+
+    if (reservationsRes.status === 'fulfilled' && reservationsRes.value.code === 200) {
+      unviewedReservationsCount.value = reservationsRes.value.data?.unviewed_count || 0;
     }
   } catch (error) {
     console.error('加载未查看数量失败:', error);
@@ -363,17 +373,54 @@ router.afterEach((to) => {
     unviewedOrdersCount.value = 0;
     unviewedDepositsCount.value = 0;
     unviewedReviewsCount.value = 0;
+    unviewedReservationsCount.value = 0;
   }
 });
 
-// 监听路由变化，当进入订单/定金/评价管理页面时刷新未查看数量
+// 监听路由变化，当进入订单/定金/评价/预约管理页面时刷新未查看数量
 watch(() => route.path, (newPath) => {
-  if (isAdminRoute.value && (newPath === '/admin/orders' || newPath === '/admin/deposits' || newPath === '/admin/reviews')) {
+  if (isAdminRoute.value && (newPath === '/admin/orders' || newPath === '/admin/deposits' || newPath === '/admin/reviews' || newPath === '/admin/reservations')) {
     loadUnviewedCounts();
   }
 });
 
+// 监听未查看数量变化事件
+const handleUnviewedCountChanged = (event: Event) => {
+  const customEvent = event as CustomEvent<{ type: string; count: number }>;
+  const { type, count } = customEvent.detail;
+  
+  if (import.meta.env.DEV) {
+    console.log('收到未查看数量变化事件:', { type, count });
+  }
+  
+  if (type === 'orders') {
+    unviewedOrdersCount.value = count;
+  } else if (type === 'deposits') {
+    unviewedDepositsCount.value = count;
+  } else if (type === 'reviews') {
+    unviewedReviewsCount.value = count;
+  } else if (type === 'reservations') {
+    unviewedReservationsCount.value = count;
+  }
+  
+  if (import.meta.env.DEV) {
+    console.log('更新后的未查看数量:', {
+      orders: unviewedOrdersCount.value,
+      deposits: unviewedDepositsCount.value,
+      reviews: unviewedReviewsCount.value,
+      reservations: unviewedReservationsCount.value,
+    });
+  }
+};
+
 onMounted(() => {
+  // 监听未查看数量变化事件
+  window.addEventListener('unviewed-count-changed', handleUnviewedCountChanged);
+  
+  if (import.meta.env.DEV) {
+    console.log('App.vue: 事件监听器已添加');
+  }
+  
   // 只在后台路由时加载管理员信息和未查看数量，前台路由完全不加载
   if (isAdminRoute.value) {
     // 使用 setTimeout 延迟加载，确保 token 已经设置
@@ -387,7 +434,13 @@ onMounted(() => {
     unviewedOrdersCount.value = 0;
     unviewedDepositsCount.value = 0;
     unviewedReviewsCount.value = 0;
+    unviewedReservationsCount.value = 0;
   }
+});
+
+onUnmounted(() => {
+  // 清理事件监听器
+  window.removeEventListener('unviewed-count-changed', handleUnviewedCountChanged);
 });
 </script>
 

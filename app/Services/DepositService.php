@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Helpers\LoggerHelper;
 use App\Models\Reservation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -23,6 +24,11 @@ class DepositService
     {
         // 检查预约状态
         if ($reservation->deposit_status !== 'paid') {
+            LoggerHelper::depositWarning('预约定金未支付，无法返还', [
+                'reservation_id' => $reservation->id,
+                'reservation_code' => $reservation->reservation_code,
+                'deposit_status' => $reservation->deposit_status,
+            ]);
             Log::warning('预约定金未支付，无法返还', [
                 'reservation_id' => $reservation->id,
                 'deposit_status' => $reservation->deposit_status,
@@ -32,6 +38,10 @@ class DepositService
 
         // 检查是否已经返还
         if ($reservation->deposit_refunded_at) {
+            LoggerHelper::depositDebug('预约定金已返还，跳过重复返还', [
+                'reservation_id' => $reservation->id,
+                'reservation_code' => $reservation->reservation_code,
+            ]);
             Log::info('预约定金已返还，跳过重复返还', [
                 'reservation_id' => $reservation->id,
             ]);
@@ -40,6 +50,10 @@ class DepositService
 
         // 检查预约是否已到达
         if (!$reservation->arrived_at) {
+            LoggerHelper::depositWarning('预约未到达，无法返还定金', [
+                'reservation_id' => $reservation->id,
+                'reservation_code' => $reservation->reservation_code,
+            ]);
             Log::warning('预约未到达，无法返还定金', [
                 'reservation_id' => $reservation->id,
             ]);
@@ -58,6 +72,13 @@ class DepositService
                 // 目前是模拟返还，实际应该根据 deposit_data 中的支付方式调用相应的退款接口
                 // 例如：微信支付退款、支付宝退款等
                 
+                LoggerHelper::depositInfo('预约定金已原路返还', [
+                    'reservation_id' => $reservation->id,
+                    'reservation_code' => $reservation->reservation_code,
+                    'deposit_amount' => $reservation->deposit_amount,
+                    'deposit_transaction_id' => $reservation->deposit_transaction_id,
+                    'payment_method' => $reservation->deposit_data['method'] ?? 'unknown',
+                ]);
                 Log::info('预约定金已原路返还', [
                     'reservation_id' => $reservation->id,
                     'reservation_code' => $reservation->reservation_code,
@@ -69,6 +90,12 @@ class DepositService
 
             return true;
         } catch (\Exception $e) {
+            LoggerHelper::depositError('返还预约定金失败', [
+                'reservation_id' => $reservation->id,
+                'reservation_code' => $reservation->reservation_code,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             Log::error('返还预约定金失败', [
                 'reservation_id' => $reservation->id,
                 'error' => $e->getMessage(),
@@ -100,6 +127,12 @@ class DepositService
                     'deposit_refunded_at' => now(),
                 ]);
 
+                LoggerHelper::depositInfo('管理员手动返还预约定金', [
+                    'reservation_id' => $reservation->id,
+                    'reservation_code' => $reservation->reservation_code,
+                    'deposit_amount' => $reservation->deposit_amount,
+                    'reason' => $reason,
+                ]);
                 Log::info('管理员手动返还预约定金', [
                     'reservation_id' => $reservation->id,
                     'reservation_code' => $reservation->reservation_code,
@@ -110,6 +143,11 @@ class DepositService
 
             return true;
         } catch (\Exception $e) {
+            LoggerHelper::depositError('手动返还预约定金失败', [
+                'reservation_id' => $reservationId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             Log::error('手动返还预约定金失败', [
                 'reservation_id' => $reservationId,
                 'error' => $e->getMessage(),

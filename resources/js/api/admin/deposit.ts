@@ -35,10 +35,31 @@ export const adminDepositApi = {
   },
 
   /**
+   * 获取定金详情
+   */
+  getDeposit: (reservationId: number): Promise<ApiResponse<Reservation>> => {
+    return adminApiClient.get(`/admin/v1/deposits/${reservationId}`);
+  },
+
+  /**
    * 手动返还定金
    */
   refundDeposit: (reservationId: number, reason?: string): Promise<ApiResponse<Reservation>> => {
     return adminApiClient.post(`/admin/v1/deposits/${reservationId}/refund`, { reason });
+  },
+
+  /**
+   * 批量标记为已查看
+   */
+  markAsViewed: (ids: number[]): Promise<ApiResponse<{ count: number }>> => {
+    return adminApiClient.post('/admin/v1/deposits/mark-viewed', { ids });
+  },
+
+  /**
+   * 批量删除定金记录
+   */
+  batchDelete: (ids: number[]): Promise<ApiResponse<{ count: number }>> => {
+    return adminApiClient.delete('/admin/v1/deposits/batch', { data: { ids } });
   },
 };
 

@@ -115,6 +115,125 @@ class DepositController extends Controller
     }
 
     /**
+     * 获取定金详情
+     */
+    public function show(int $reservationId): JsonResponse
+    {
+        try {
+            $reservation = Reservation::with(['user', 'table', 'order'])
+                ->whereNotNull('deposit_amount')
+                ->where('deposit_amount', '>', 0)
+                ->findOrFail($reservationId);
+
+            // 标记为已查看
+            if (!$reservation->is_viewed) {
+                $reservation->update([
+                    'is_viewed' => true,
+                    'viewed_at' => now(),
+                ]);
+                $reservation->refresh();
+            }
+
+            return response()->json([
+                'code' => 200,
+                'message' => '获取成功',
+                'data' => $reservation,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'code' => 404,
+                'message' => '定金记录不存在',
+            ], 404);
+        }
+    }
+
+    /**
+     * 批量标记为已查看
+     */
+    public function markAsViewed(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer|exists:reservations,id',
+        ]);
+
+        try {
+            $count = Reservation::whereIn('id', $request->input('ids'))
+                ->whereNotNull('deposit_amount')
+                ->where('deposit_amount', '>', 0)
+                ->where('is_viewed', false)
+                ->update([
+                    'is_viewed' => true,
+                    'viewed_at' => now(),
+                ]);
+
+            return response()->json([
+                'code' => 200,
+                'message' => "成功标记 {$count} 条定金记录为已查看",
+                'data' => [
+                    'count' => $count,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'code' => 500,
+                'message' => '操作失败：' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * 批量删除定金记录
+     */
+    public function batchDelete(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer|exists:reservations,id',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $reservations = Reservation::whereIn('id', $request->input('ids'))
+                ->whereNotNull('deposit_amount')
+                ->where('deposit_amount', '>', 0)
+                ->get();
+            
+            $count = 0;
+            foreach ($reservations as $reservation) {
+                // 如果定金已支付但未返还，不允许删除
+                if ($reservation->deposit_status === 'paid' && !$reservation->deposit_refunded_at) {
+                    continue;
+                }
+                $reservation->delete();
+                $count++;
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'code' => 200,
+                'message' => "成功删除 {$count} 条定金记录",
+                'data' => [
+                    'count' => $count,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('批量删除定金记录失败', [
+                'ids' => $request->input('ids'),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'code' => 500,
+                'message' => '删除失败：' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * 手动返还定金
      */
     public function refund(int $reservationId, Request $request): JsonResponse

@@ -91,5 +91,19 @@ export const adminOrderApi = {
   complete: (id: number) => {
     return adminApiClient.post(`/admin/v1/orders/${id}/complete`);
   },
+
+  /**
+   * 批量标记为已查看
+   */
+  markAsViewed: (ids: number[]) => {
+    return adminApiClient.post('/admin/v1/orders/mark-viewed', { ids });
+  },
+
+  /**
+   * 批量删除订单
+   */
+  batchDelete: (ids: number[]) => {
+    return adminApiClient.delete('/admin/v1/orders/batch', { data: { ids } });
+  },
 };
 

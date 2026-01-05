@@ -18,6 +18,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\PointLevel;
 use App\Models\Reservation;
+use App\Helpers\LoggerHelper;
 use App\Services\PointService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -55,6 +56,11 @@ class OrderController extends Controller
         ]);
 
         if ($validator->fails()) {
+            LoggerHelper::orderWarning('订单创建参数验证失败', [
+                'user_id' => Auth::id(),
+                'errors' => $validator->errors()->toArray(),
+                'request_data' => $request->except(['password', 'token']),
+            ]);
             return response()->json([
                 'code' => 400,
                 'message' => '参数验证失败',
@@ -64,6 +70,7 @@ class OrderController extends Controller
 
         $user = Auth::user();
         if (!$user) {
+            LoggerHelper::orderWarning('订单创建失败：用户未登录');
             return response()->json([
                 'code' => 401,
                 'message' => '未登录',
@@ -77,6 +84,18 @@ class OrderController extends Controller
         $usePoints = $request->boolean('use_points', false);
         $pointsUsed = (int) $request->input('points_used', 0);
         $userCouponId = $request->input('user_coupon_id');
+
+        LoggerHelper::orderDebug('开始创建订单', [
+            'user_id' => $user->id,
+            'user_nickname' => $user->nickname,
+            'items_count' => count($items),
+            'table_id' => $tableId,
+            'reservation_id' => $reservationId,
+            'use_deposit' => $useDeposit,
+            'use_points' => $usePoints,
+            'points_used' => $pointsUsed,
+            'user_coupon_id' => $userCouponId,
+        ]);
 
         try {
             DB::beginTransaction();
@@ -133,6 +152,10 @@ class OrderController extends Controller
                     ->first();
 
                 if (!$userCoupon) {
+                    LoggerHelper::orderWarning('订单创建失败：优惠券不存在或已使用', [
+                        'user_id' => $user->id,
+                        'user_coupon_id' => $userCouponId,
+                    ]);
                     DB::rollBack();
                     return response()->json([
                         'code' => 400,
@@ -142,6 +165,11 @@ class OrderController extends Controller
 
                 $coupon = $userCoupon->coupon;
                 if (!$coupon || !$coupon->isUsable()) {
+                    LoggerHelper::orderWarning('订单创建失败：优惠券不可用', [
+                        'user_id' => $user->id,
+                        'user_coupon_id' => $userCouponId,
+                        'coupon_id' => $coupon?->id,
+                    ]);
                     DB::rollBack();
                     return response()->json([
                         'code' => 400,
@@ -284,6 +312,14 @@ class OrderController extends Controller
             if ($tableId) {
                 $table = \App\Models\Table::find($tableId);
                 if (!$table) {
+                    LoggerHelper::orderWarning('订单创建失败：桌位不存在', [
+                        'user_id' => $user->id,
+                        'table_id' => $tableId,
+                    ]);
+                    LoggerHelper::tableWarning('订单创建时桌位不存在', [
+                        'user_id' => $user->id,
+                        'table_id' => $tableId,
+                    ]);
                     DB::rollBack();
                     return response()->json([
                         'code' => 404,
@@ -317,6 +353,20 @@ class OrderController extends Controller
                             $isFirstOrder = false;
                         } else {
                             // 团队码不匹配或未提供
+                            LoggerHelper::orderWarning('订单创建失败：团队码不匹配', [
+                                'user_id' => $user->id,
+                                'table_id' => $tableId,
+                                'table_name' => $table->name,
+                                'provided_team_code' => $request->input('team_code'),
+                                'required_team_code' => $table->team_code,
+                            ]);
+                            LoggerHelper::tableWarning('订单创建时团队码不匹配', [
+                                'user_id' => $user->id,
+                                'table_id' => $tableId,
+                                'table_name' => $table->name,
+                                'provided_team_code' => $request->input('team_code'),
+                                'required_team_code' => $table->team_code,
+                            ]);
                             DB::rollBack();
                             return response()->json([
                                 'code' => 400,
@@ -327,6 +377,18 @@ class OrderController extends Controller
                 }
                 
                 if (!$canUse) {
+                    LoggerHelper::orderWarning('订单创建失败：桌位不可用', [
+                        'user_id' => $user->id,
+                        'table_id' => $tableId,
+                        'table_name' => $table->name,
+                        'table_status' => $table->status,
+                    ]);
+                    LoggerHelper::tableWarning('订单创建时桌位不可用', [
+                        'user_id' => $user->id,
+                        'table_id' => $tableId,
+                        'table_name' => $table->name,
+                        'table_status' => $table->status,
+                    ]);
                     DB::rollBack();
                     return response()->json([
                         'code' => 400,
@@ -344,10 +406,24 @@ class OrderController extends Controller
                         'occupied_by_user_id' => $user->id,
                         'team_code' => $teamCode,
                     ]);
+                    LoggerHelper::tableInfo('订单创建时桌位已锁定', [
+                        'user_id' => $user->id,
+                        'table_id' => $tableId,
+                        'table_name' => $table->name,
+                        'team_code' => $teamCode,
+                        'is_first_order' => true,
+                    ]);
                 } else {
                     // 加菜：不重置时间，保持原有使用人和团队码
                     // 如果当前用户不是使用人，但通过团队码加入，不更新使用人
                     // 保持原有状态不变
+                    LoggerHelper::tableDebug('订单创建时使用已有桌位（加菜）', [
+                        'user_id' => $user->id,
+                        'table_id' => $tableId,
+                        'table_name' => $table->name,
+                        'team_code' => $table->team_code,
+                        'is_first_order' => false,
+                    ]);
                 }
             }
 
@@ -452,6 +528,22 @@ class OrderController extends Controller
             // 加载关联数据
             $order->load(['items.dish', 'user', 'table']);
 
+            LoggerHelper::orderInfo('订单创建成功', [
+                'order_id' => $order->id,
+                'order_no' => $order->order_no,
+                'user_id' => $user->id,
+                'user_nickname' => $user->nickname,
+                'table_id' => $tableId,
+                'table_name' => $table?->name,
+                'total_amount' => $totalAmount,
+                'deposit_discount' => $depositDiscount,
+                'points_discount' => $pointsDiscount,
+                'coupon_discount' => $couponDiscount,
+                'level_discount' => $levelDiscount,
+                'final_amount' => $finalAmount,
+                'items_count' => count($orderItems),
+            ]);
+
             return response()->json([
                 'code' => 200,
                 'message' => '订单创建成功',
@@ -459,6 +551,12 @@ class OrderController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            LoggerHelper::orderError('创建订单失败', [
+                'user_id' => $user->id,
+                'user_nickname' => $user->nickname,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             Log::error('创建订单失败', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
@@ -570,6 +668,21 @@ class OrderController extends Controller
 
                 DB::commit();
 
+                LoggerHelper::orderInfo('订单支付成功（模拟支付）', [
+                    'order_id' => $order->id,
+                    'order_no' => $order->order_no,
+                    'user_id' => $user->id,
+                    'transaction_id' => $transactionId,
+                    'payment_amount' => $paymentAmount,
+                    'final_amount' => $order->final_amount,
+                ]);
+                LoggerHelper::paymentInfo('模拟支付成功', [
+                    'order_id' => $order->id,
+                    'order_no' => $order->order_no,
+                    'user_id' => $user->id,
+                    'transaction_id' => $transactionId,
+                    'payment_amount' => $paymentAmount,
+                ]);
                 Log::info('模拟支付成功', [
                     'order_id' => $order->id,
                     'order_no' => $order->order_no,
@@ -620,6 +733,20 @@ class OrderController extends Controller
             }
         } catch (\Exception $e) {
             DB::rollBack();
+            LoggerHelper::orderError('支付订单失败', [
+                'order_id' => $orderId,
+                'user_id' => $user->id,
+                'payment_method' => $paymentMethod,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            LoggerHelper::paymentError('支付失败', [
+                'order_id' => $orderId,
+                'user_id' => $user->id,
+                'payment_method' => $paymentMethod,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             Log::error('支付订单失败', [
                 'order_id' => $orderId,
                 'payment_method' => $paymentMethod,

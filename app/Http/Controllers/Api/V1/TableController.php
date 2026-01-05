@@ -9,11 +9,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Helpers\LoggerHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Table;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class TableController extends Controller
 {
@@ -45,7 +47,17 @@ class TableController extends Controller
             ->get();
         
         // 调试日志：检查返回的桌位和用户信息
-        \Log::info('getAvailableTables', [
+        LoggerHelper::tableDebug('获取可用桌位列表', [
+            'user_id' => $user?->id,
+            'user_nickname' => $user?->nickname,
+            'tables_count' => $tables->count(),
+            'occupied_tables' => $tables->where('status', 'occupied')->pluck('name')->toArray(),
+            'user_occupied_tables' => $tables->where('status', 'occupied')
+                ->where('occupied_by_user_id', $user?->id)
+                ->pluck('name')
+                ->toArray(),
+        ]);
+        Log::info('getAvailableTables', [
             'user_id' => $user?->id,
             'tables_count' => $tables->count(),
             'occupied_tables' => $tables->where('status', 'occupied')->pluck('name')->toArray(),
@@ -75,22 +87,42 @@ class TableController extends Controller
         
         $user = Auth::user();
         if (!$user) {
+            LoggerHelper::tableWarning('加入团队失败：用户未登录');
             return response()->json([
                 'code' => 401,
                 'message' => '未登录',
             ], 401);
         }
         
-        $table = Table::where('team_code', $request->input('team_code'))
+        $teamCode = $request->input('team_code');
+        LoggerHelper::tableDebug('尝试加入团队', [
+            'user_id' => $user->id,
+            'user_nickname' => $user->nickname,
+            'team_code' => $teamCode,
+        ]);
+        
+        $table = Table::where('team_code', $teamCode)
             ->where('status', 'occupied')
             ->first();
             
         if (!$table) {
+            LoggerHelper::tableWarning('加入团队失败：团队码无效或桌位不可用', [
+                'user_id' => $user->id,
+                'team_code' => $teamCode,
+            ]);
             return response()->json([
                 'code' => 404,
                 'message' => '团队码无效或桌位不可用',
             ], 404);
         }
+        
+        LoggerHelper::tableInfo('成功加入团队', [
+            'user_id' => $user->id,
+            'user_nickname' => $user->nickname,
+            'table_id' => $table->id,
+            'table_name' => $table->name,
+            'team_code' => $teamCode,
+        ]);
         
         return response()->json([
             'code' => 200,

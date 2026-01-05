@@ -275,4 +275,65 @@ class ReviewController extends Controller
             ], 404);
         }
     }
+
+    /**
+     * 批量标记为已查看
+     */
+    public function markAsViewed(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer|exists:reviews,id',
+        ]);
+
+        try {
+            $count = Review::whereIn('id', $request->input('ids'))
+                ->where('is_viewed', false)
+                ->update([
+                    'is_viewed' => true,
+                    'viewed_at' => now(),
+                ]);
+
+            return response()->json([
+                'code' => 200,
+                'message' => "成功标记 {$count} 条评价为已查看",
+                'data' => [
+                    'count' => $count,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'code' => 500,
+                'message' => '操作失败：' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * 批量删除评价
+     */
+    public function batchDelete(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer|exists:reviews,id',
+        ]);
+
+        try {
+            $count = Review::whereIn('id', $request->input('ids'))->delete();
+
+            return response()->json([
+                'code' => 200,
+                'message' => "成功删除 {$count} 条评价",
+                'data' => [
+                    'count' => $count,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'code' => 500,
+                'message' => '删除失败：' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }

@@ -16,6 +16,7 @@ export interface GetReservationsParams {
 export interface ReservationsResponse {
   reservations: Reservation[];
   pagination: Pagination;
+  unviewed_count?: number;
 }
 
 export const adminReservationApi = {
@@ -45,6 +46,20 @@ export const adminReservationApi = {
    */
   cancel: (reservationId: number, reason?: string): Promise<ApiResponse<Reservation>> => {
     return adminApiClient.post(`/admin/v1/reservations/${reservationId}/cancel`, { reason });
+  },
+
+  /**
+   * 批量标记为已查看
+   */
+  markAsViewed: (ids: number[]): Promise<ApiResponse<{ count: number }>> => {
+    return adminApiClient.post('/admin/v1/reservations/mark-viewed', { ids });
+  },
+
+  /**
+   * 批量删除预约
+   */
+  batchDelete: (ids: number[]): Promise<ApiResponse<{ count: number }>> => {
+    return adminApiClient.delete('/admin/v1/reservations/batch', { data: { ids } });
   },
 };
 

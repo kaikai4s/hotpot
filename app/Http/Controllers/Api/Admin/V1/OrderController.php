@@ -331,5 +331,92 @@ class OrderController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * 批量标记为已查看
+     */
+    public function markAsViewed(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer|exists:orders,id',
+        ]);
+
+        try {
+            $count = Order::whereIn('id', $request->input('ids'))
+                ->where('is_viewed', false)
+                ->update([
+                    'is_viewed' => true,
+                    'viewed_at' => now(),
+                ]);
+
+            return response()->json([
+                'code' => 200,
+                'message' => "成功标记 {$count} 条订单为已查看",
+                'data' => [
+                    'count' => $count,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('批量标记订单为已查看失败', [
+                'ids' => $request->input('ids'),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'code' => 500,
+                'message' => '操作失败：' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * 批量删除订单
+     */
+    public function batchDelete(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer|exists:orders,id',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $orders = Order::whereIn('id', $request->input('ids'))->get();
+            $count = 0;
+
+            foreach ($orders as $order) {
+                // 只有已取消或已完成的订单可以删除
+                if (in_array($order->status, ['cancelled', 'completed'])) {
+                    // 删除关联的订单项
+                    $order->items()->delete();
+                    $order->delete();
+                    $count++;
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'code' => 200,
+                'message' => "成功删除 {$count} 条订单",
+                'data' => [
+                    'count' => $count,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('批量删除订单失败', [
+                'ids' => $request->input('ids'),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'code' => 500,
+                'message' => '删除失败：' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }
 

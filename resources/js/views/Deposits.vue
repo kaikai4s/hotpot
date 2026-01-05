@@ -3,13 +3,38 @@
     <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
       <div class="flex justify-between items-center mb-6">
         <div>
-          <h1 class="text-3xl font-bold text-gray-800 mb-2">定金管理</h1>
+          <div class="flex items-center gap-2 mb-2">
+            <h1 class="text-3xl font-bold text-gray-800">定金管理</h1>
+            <span v-if="unviewedCount > 0" class="bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">
+              {{ unviewedCount > 99 ? '99+' : unviewedCount }}
+            </span>
+          </div>
           <p class="text-gray-600">管理和查看所有预约定金记录</p>
         </div>
-        <el-button type="primary" size="large" @click="fetchData">
-          <el-icon><Refresh /></el-icon>
-          刷新
-        </el-button>
+        <div class="flex gap-2">
+          <el-button 
+            v-if="selectedDeposits.length > 0" 
+            type="success" 
+            size="large" 
+            @click="handleBatchMarkAsViewed"
+          >
+            <el-icon><Check /></el-icon>
+            一键查看 ({{ selectedDeposits.length }})
+          </el-button>
+          <el-button 
+            v-if="selectedDeposits.length > 0" 
+            type="danger" 
+            size="large" 
+            @click="handleBatchDelete"
+          >
+            <el-icon><Delete /></el-icon>
+            批量删除 ({{ selectedDeposits.length }})
+          </el-button>
+          <el-button type="primary" size="large" @click="fetchData">
+            <el-icon><Refresh /></el-icon>
+            刷新
+          </el-button>
+        </div>
       </div>
 
       <!-- 统计卡片 -->
@@ -102,7 +127,9 @@
         stripe
         style="width: 100%"
         class="mb-4"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="reservation_code" label="预约编号" width="180" />
         <el-table-column prop="user.nickname" label="用户" width="120">
           <template #default="{ row }">
@@ -158,19 +185,27 @@
             <span v-else class="text-gray-400">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
+            <el-button 
+              link 
+              type="primary" 
+              size="small" 
+              @click="viewDetail(row)"
+            >
+              <el-icon><View /></el-icon>
+              查看
+            </el-button>
             <el-button 
               v-if="row.deposit_status === 'paid' && !row.deposit_refunded_at"
               link 
-              type="primary" 
+              type="success" 
               size="small" 
               @click="handleRefund(row)"
             >
               <el-icon><Money /></el-icon>
               返还定金
             </el-button>
-            <span v-else class="text-gray-400 text-sm">-</span>
           </template>
         </el-table-column>
       </el-table>
@@ -186,6 +221,45 @@
         @current-change="handlePageChange"
       />
     </div>
+
+    <!-- 定金详情对话框 -->
+    <el-dialog
+      v-model="detailDialogVisible"
+      title="定金详情"
+      width="800px"
+      :close-on-click-modal="false"
+    >
+      <div v-if="selectedDeposit" class="space-y-4">
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="预约编号">{{ selectedDeposit.reservation_code }}</el-descriptions-item>
+          <el-descriptions-item label="定金状态">
+            <el-tag :type="getDepositStatusType(selectedDeposit.deposit_status)" effect="dark">
+              {{ getDepositStatusText(selectedDeposit.deposit_status) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="用户">{{ selectedDeposit.user?.nickname || '未知用户' }}</el-descriptions-item>
+          <el-descriptions-item label="联系电话">{{ selectedDeposit.user?.phone || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="桌位">
+            <el-tag v-if="selectedDeposit.table" type="info">{{ selectedDeposit.table.name }}</el-tag>
+            <span v-else>未指定</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="定金金额">
+            <span class="text-red-600 font-bold text-lg">¥{{ selectedDeposit.deposit_amount }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="支付时间">
+            {{ selectedDeposit.deposit_paid_at ? formatDateTime(selectedDeposit.deposit_paid_at) : '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="返还时间">
+            {{ selectedDeposit.deposit_refunded_at ? formatDateTime(selectedDeposit.deposit_refunded_at) : '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="创建时间">{{ formatDateTime(selectedDeposit.created_at) }}</el-descriptions-item>
+          <el-descriptions-item label="查看状态">
+            <el-tag v-if="selectedDeposit.is_viewed" type="success">已查看</el-tag>
+            <el-tag v-else type="warning">未查看</el-tag>
+          </el-descriptions-item>
+        </el-descriptions>
+      </div>
+    </el-dialog>
 
     <!-- 返还定金对话框 -->
     <el-dialog
@@ -224,7 +298,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Refresh, Money, CircleCheck, Warning } from '@element-plus/icons-vue';
+import { Refresh, Money, CircleCheck, Warning, Check, Delete, View } from '@element-plus/icons-vue';
 import { adminDepositApi } from '../api/admin/deposit';
 import type { Reservation } from '../types';
 
@@ -249,12 +323,17 @@ const filters = ref({
   date_to: '',
 });
 const refundDialogVisible = ref(false);
+const detailDialogVisible = ref(false);
 const refundForm = ref({
   reservation_id: 0,
   reservation_code: '',
   deposit_amount: 0,
   reason: '',
 });
+const selectedDeposits = ref<Reservation[]>([]);
+const selectedDeposit = ref<Reservation | null>(null);
+const unviewedCount = ref(0);
+const isManuallyUpdatingUnviewedCount = ref(false);
 
 const formatDate = (date: string) => {
   if (!date) return '-';
@@ -326,6 +405,11 @@ const fetchData = async () => {
         refunded_amount: 0,
         forfeited_amount: 0,
       };
+      // 只有在没有手动更新的情况下才使用 API 返回的值
+      if (!isManuallyUpdatingUnviewedCount.value) {
+        unviewedCount.value = response.data.unviewed_count || 0;
+      }
+      isManuallyUpdatingUnviewedCount.value = false;
     } else {
       console.error('API响应格式错误:', response);
       ElMessage.error(response?.message || '获取定金列表失败');
@@ -374,6 +458,118 @@ const handleRefund = (reservation: Reservation) => {
     reason: '',
   };
   refundDialogVisible.value = true;
+};
+
+const handleSelectionChange = (selection: Reservation[]) => {
+  selectedDeposits.value = selection;
+};
+
+const viewDetail = async (reservation: Reservation) => {
+  detailDialogVisible.value = true;
+  selectedDeposit.value = reservation;
+
+  try {
+    // 获取定金详情（会自动标记为已查看）
+    const response = await adminDepositApi.getDeposit(reservation.id);
+    if (response.code === 200 && response.data) {
+      selectedDeposit.value = response.data;
+      // 更新列表中的查看状态
+      const index = reservations.value.findIndex(r => r.id === reservation.id);
+      if (index !== -1) {
+        reservations.value[index].is_viewed = true;
+        reservations.value[index].viewed_at = response.data.viewed_at;
+      }
+      // 更新未查看数量
+      if (!reservation.is_viewed) {
+        isManuallyUpdatingUnviewedCount.value = true;
+        unviewedCount.value = Math.max(0, unviewedCount.value - 1);
+        // 通知 App.vue 更新导航菜单中的红点（立即触发）
+        window.dispatchEvent(new CustomEvent('unviewed-count-changed', { detail: { type: 'deposits', count: unviewedCount.value } }));
+      }
+    }
+  } catch (error: any) {
+    console.error('获取定金详情失败:', error);
+    ElMessage.error(error.response?.data?.message || error.message || '获取定金详情失败');
+  }
+};
+
+const handleBatchMarkAsViewed = async () => {
+  if (selectedDeposits.value.length === 0) {
+    ElMessage.warning('请先选择要标记为已查看的定金记录');
+    return;
+  }
+
+  try {
+    const ids = selectedDeposits.value.map(r => r.id);
+    const response = await adminDepositApi.markAsViewed(ids);
+    if (response.code === 200) {
+      ElMessage.success(response.message || '标记成功');
+      // 更新列表中的查看状态
+      selectedDeposits.value.forEach(selected => {
+        const index = reservations.value.findIndex(r => r.id === selected.id);
+        if (index !== -1) {
+          reservations.value[index].is_viewed = true;
+          reservations.value[index].viewed_at = new Date().toISOString();
+        }
+      });
+      // 更新未查看数量
+      const markedCount = selectedDeposits.value.filter(r => !r.is_viewed).length;
+      isManuallyUpdatingUnviewedCount.value = true;
+      unviewedCount.value = Math.max(0, unviewedCount.value - markedCount);
+      // 通知 App.vue 更新导航菜单中的红点（立即触发）
+      window.dispatchEvent(new CustomEvent('unviewed-count-changed', { detail: { type: 'deposits', count: unviewedCount.value } }));
+      // 清空选择
+      selectedDeposits.value = [];
+    } else {
+      ElMessage.error(response.message || '标记失败');
+    }
+  } catch (error: any) {
+    console.error('批量标记为已查看失败:', error);
+    ElMessage.error(error.response?.data?.message || error.message || '标记失败');
+  }
+};
+
+const handleBatchDelete = async () => {
+  if (selectedDeposits.value.length === 0) {
+    ElMessage.warning('请先选择要删除的定金记录');
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedDeposits.value.length} 条定金记录吗？此操作不可恢复！`,
+      '确认删除',
+      {
+        confirmButtonText: '确认删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+
+    const ids = selectedDeposits.value.map(r => r.id);
+    const response = await adminDepositApi.batchDelete(ids);
+    if (response.code === 200) {
+      ElMessage.success(response.message || '删除成功');
+      // 更新未查看数量（减去被删除的未查看定金记录数量）
+      const deletedUnviewedCount = selectedDeposits.value.filter(r => !r.is_viewed).length;
+      isManuallyUpdatingUnviewedCount.value = true;
+      const newCount = Math.max(0, unviewedCount.value - deletedUnviewedCount);
+      unviewedCount.value = newCount;
+      // 通知 App.vue 更新导航菜单中的红点（立即触发）
+      window.dispatchEvent(new CustomEvent('unviewed-count-changed', { detail: { type: 'deposits', count: unviewedCount.value } }));
+      // 刷新列表（fetchData 会检查标志，不会覆盖手动更新的值）
+      await fetchData();
+      // 清空选择
+      selectedDeposits.value = [];
+    } else {
+      ElMessage.error(response.message || '删除失败');
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('批量删除失败:', error);
+      ElMessage.error(error.response?.data?.message || error.message || '删除失败');
+    }
+  }
 };
 
 const confirmRefund = async () => {

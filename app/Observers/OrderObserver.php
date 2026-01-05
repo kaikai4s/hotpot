@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
+use App\Helpers\LoggerHelper;
 use App\Models\Order;
 use App\Models\PointTransaction;
 use App\Models\UserInvitation;
@@ -53,6 +54,19 @@ class OrderObserver
                 if (!$existingTransaction) {
                     $transaction = $this->pointService->earnPointsFromOrder($order);
                     if ($transaction) {
+                        LoggerHelper::orderInfo('订单支付积分奖励', [
+                            'order_id' => $order->id,
+                            'order_no' => $order->order_no,
+                            'user_id' => $order->user_id,
+                            'status' => $order->status,
+                            'points' => $transaction->points,
+                        ]);
+                        LoggerHelper::pointInfo('订单支付获得积分', [
+                            'order_id' => $order->id,
+                            'order_no' => $order->order_no,
+                            'user_id' => $order->user_id,
+                            'points' => $transaction->points,
+                        ]);
                         Log::info('订单支付积分奖励', [
                             'order_id' => $order->id,
                             'order_no' => $order->order_no,
@@ -62,12 +76,30 @@ class OrderObserver
                         ]);
                     }
                 } else {
+                    LoggerHelper::orderDebug('订单积分已发放，跳过重复发放', [
+                        'order_id' => $order->id,
+                        'order_no' => $order->order_no,
+                    ]);
                     Log::info('订单积分已发放，跳过重复发放', [
                         'order_id' => $order->id,
                         'order_no' => $order->order_no,
                     ]);
                 }
             } catch (\Exception $e) {
+                LoggerHelper::orderError('订单支付积分奖励失败', [
+                    'order_id' => $order->id,
+                    'order_no' => $order->order_no,
+                    'user_id' => $order->user_id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                LoggerHelper::pointError('订单支付积分奖励失败', [
+                    'order_id' => $order->id,
+                    'order_no' => $order->order_no,
+                    'user_id' => $order->user_id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
                 Log::error('订单支付积分奖励失败', [
                     'order_id' => $order->id,
                     'error' => $e->getMessage(),
@@ -93,6 +125,20 @@ class OrderObserver
                         $refunded = $this->depositService->refundDeposit($reservation);
                         
                         if ($refunded) {
+                            LoggerHelper::orderInfo('订单完成，预约定金已自动返还', [
+                                'order_id' => $order->id,
+                                'order_no' => $order->order_no,
+                                'reservation_id' => $reservation->id,
+                                'reservation_code' => $reservation->reservation_code,
+                                'deposit_amount' => $reservation->deposit_amount,
+                            ]);
+                            LoggerHelper::depositInfo('订单完成，预约定金已自动返还', [
+                                'order_id' => $order->id,
+                                'order_no' => $order->order_no,
+                                'reservation_id' => $reservation->id,
+                                'reservation_code' => $reservation->reservation_code,
+                                'deposit_amount' => $reservation->deposit_amount,
+                            ]);
                             Log::info('订单完成，预约定金已自动返还', [
                                 'order_id' => $order->id,
                                 'order_no' => $order->order_no,
@@ -104,6 +150,18 @@ class OrderObserver
                     }
                 }
             } catch (\Exception $e) {
+                LoggerHelper::orderError('订单完成时返还定金失败', [
+                    'order_id' => $order->id,
+                    'order_no' => $order->order_no,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                LoggerHelper::depositError('订单完成时返还定金失败', [
+                    'order_id' => $order->id,
+                    'order_no' => $order->order_no,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
                 Log::error('订单完成时返还定金失败', [
                     'order_id' => $order->id,
                     'error' => $e->getMessage(),
@@ -137,6 +195,18 @@ class OrderObserver
                             // 发放邀请奖励
                             $this->invitationService->issueInvitationRewards($invitation);
 
+                            LoggerHelper::orderInfo('首次消费，邀请奖励已发放', [
+                                'order_id' => $order->id,
+                                'user_id' => $user->id,
+                                'invitation_id' => $invitation->id,
+                                'inviter_id' => $invitation->inviter_id,
+                            ]);
+                            LoggerHelper::userInfo('首次消费，邀请奖励已发放', [
+                                'order_id' => $order->id,
+                                'user_id' => $user->id,
+                                'invitation_id' => $invitation->id,
+                                'inviter_id' => $invitation->inviter_id,
+                            ]);
                             Log::info('首次消费，邀请奖励已发放', [
                                 'order_id' => $order->id,
                                 'user_id' => $user->id,
@@ -147,6 +217,11 @@ class OrderObserver
                     }
                 }
             } catch (\Exception $e) {
+                    LoggerHelper::orderError('首次消费邀请奖励发放失败', [
+                    'order_id' => $order->id,
+                    'user_id' => $order->user_id,
+                    'error' => $e->getMessage(),
+                ]);
                     Log::error('首次消费邀请奖励发放失败', [
                     'order_id' => $order->id,
                     'error' => $e->getMessage(),
@@ -163,6 +238,11 @@ class OrderObserver
                     ['amount' => (float) $order->total_amount]
                 );
             } catch (\Exception $e) {
+                LoggerHelper::orderError('订单任务完成检测失败', [
+                    'order_id' => $order->id,
+                    'user_id' => $order->user_id,
+                    'error' => $e->getMessage(),
+                ]);
                 Log::error('订单任务完成检测失败', [
                     'order_id' => $order->id,
                     'error' => $e->getMessage(),
@@ -179,6 +259,11 @@ class OrderObserver
                     ['amount' => (float) $order->total_amount]
                 );
             } catch (\Exception $e) {
+                LoggerHelper::orderError('订单成就完成检测失败', [
+                    'order_id' => $order->id,
+                    'user_id' => $order->user_id,
+                    'error' => $e->getMessage(),
+                ]);
                 Log::error('订单成就完成检测失败', [
                     'order_id' => $order->id,
                     'error' => $e->getMessage(),
@@ -211,6 +296,18 @@ class OrderObserver
                                 'occupied_at' => null,
                             ]);
 
+                            LoggerHelper::orderInfo('订单取消，桌位已释放', [
+                                'order_id' => $order->id,
+                                'order_no' => $order->order_no,
+                                'table_id' => $table->id,
+                                'table_name' => $table->name,
+                            ]);
+                            LoggerHelper::tableInfo('订单取消，桌位已释放', [
+                                'order_id' => $order->id,
+                                'order_no' => $order->order_no,
+                                'table_id' => $table->id,
+                                'table_name' => $table->name,
+                            ]);
                             Log::info('订单取消，桌位已释放', [
                                 'order_id' => $order->id,
                                 'order_no' => $order->order_no,
@@ -221,6 +318,18 @@ class OrderObserver
                     }
                 }
             } catch (\Exception $e) {
+                LoggerHelper::orderError('订单取消时释放桌位失败', [
+                    'order_id' => $order->id,
+                    'order_no' => $order->order_no,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                LoggerHelper::tableError('订单取消时释放桌位失败', [
+                    'order_id' => $order->id,
+                    'order_no' => $order->order_no,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
                 Log::error('订单取消时释放桌位失败', [
                     'order_id' => $order->id,
                     'error' => $e->getMessage(),
@@ -251,6 +360,18 @@ class OrderObserver
                                 'team_code' => null,
                             ]);
 
+                            LoggerHelper::orderInfo('订单完成，桌位已释放', [
+                                'order_id' => $order->id,
+                                'order_no' => $order->order_no,
+                                'table_id' => $table->id,
+                                'table_name' => $table->name,
+                            ]);
+                            LoggerHelper::tableInfo('订单完成，桌位已释放', [
+                                'order_id' => $order->id,
+                                'order_no' => $order->order_no,
+                                'table_id' => $table->id,
+                                'table_name' => $table->name,
+                            ]);
                             Log::info('订单完成，桌位已释放', [
                                 'order_id' => $order->id,
                                 'order_no' => $order->order_no,
@@ -261,6 +382,18 @@ class OrderObserver
                     }
                 }
             } catch (\Exception $e) {
+                LoggerHelper::orderError('订单完成时释放桌位失败', [
+                    'order_id' => $order->id,
+                    'order_no' => $order->order_no,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                LoggerHelper::tableError('订单完成时释放桌位失败', [
+                    'order_id' => $order->id,
+                    'order_no' => $order->order_no,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
                 Log::error('订单完成时释放桌位失败', [
                     'order_id' => $order->id,
                     'error' => $e->getMessage(),
