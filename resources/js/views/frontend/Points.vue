@@ -218,27 +218,33 @@
                           当前等级
                         </span>
                       </div>
-                      <p class="text-gray-600 mb-2">
+                      <p class="text-gray-600 mb-3">
                         累计积分达到 <span class="font-semibold text-orange-600">{{ level.min_points.toLocaleString() }}</span> 分
                       </p>
-                      <div v-if="level.description" class="text-sm text-gray-500 mb-2">
-                        {{ level.description }}
+                      <div v-if="level.description" class="bg-blue-50 border-l-4 border-blue-400 p-3 mb-3 rounded-r">
+                        <p class="text-sm text-gray-700 leading-relaxed">{{ level.description }}</p>
                       </div>
-                      <div v-if="level.discount_type !== 'none'" class="text-sm">
-                        <span class="text-gray-600">会员权益：</span>
-                        <span v-if="level.discount_type === 'percentage'" class="text-green-600 font-semibold">
-                          订单享受{{ level.discount_value }}%折扣
-                          <span v-if="level.max_discount_amount">（最高{{ level.max_discount_amount }}元）</span>
-                        </span>
-                        <span v-else-if="level.discount_type === 'fixed'" class="text-green-600 font-semibold">
-                          订单满{{ level.min_order_amount }}元可减免{{ level.discount_value }}元
-                        </span>
-                        <span v-if="level.multiplier && level.multiplier > 1" class="text-orange-600 font-semibold ml-2">
-                          （积分{{ level.multiplier }}倍奖励）
-                        </span>
-                      </div>
-                      <div v-else class="text-sm text-gray-500">
-                        暂无特殊权益
+                      <div class="text-sm space-y-1">
+                        <div v-if="level.discount_type !== 'none'" class="flex items-center gap-2">
+                          <span class="text-gray-600 font-medium">会员权益：</span>
+                          <span v-if="level.discount_type === 'percentage'" class="text-green-600 font-semibold">
+                            订单享受{{ level.discount_value }}%折扣
+                            <span v-if="level.max_discount_amount">（最高{{ level.max_discount_amount }}元）</span>
+                            <span v-if="level.min_order_amount > 0">，满{{ level.min_order_amount }}元可用</span>
+                          </span>
+                          <span v-else-if="level.discount_type === 'fixed'" class="text-green-600 font-semibold">
+                            订单满{{ level.min_order_amount }}元可减免{{ level.discount_value }}元
+                          </span>
+                        </div>
+                        <div v-if="level.multiplier && level.multiplier > 1" class="flex items-center gap-2">
+                          <span class="text-gray-600 font-medium">积分奖励：</span>
+                          <span class="text-orange-600 font-semibold">
+                            消费和评价享受{{ level.multiplier }}倍积分奖励
+                          </span>
+                        </div>
+                        <div v-if="level.discount_type === 'none' && (!level.multiplier || level.multiplier <= 1)" class="text-gray-500">
+                          暂无特殊权益
+                        </div>
                       </div>
                     </div>
                   </div>

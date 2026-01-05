@@ -224,11 +224,19 @@ class PointController extends Controller
             ->orderBy('min_points', 'asc')
             ->get();
 
+        // 使用反射获取私有方法以计算倍数
+        $reflection = new \ReflectionClass($this->pointRuleService);
+        $method = $reflection->getMethod('getLevelMultiplier');
+        $method->setAccessible(true);
+
         return response()->json([
             'code' => 200,
             'message' => 'success',
             'data' => [
-                'levels' => $levels->map(function ($level) {
+                'levels' => $levels->map(function ($level) use ($method) {
+                    // 获取该等级的积分倍数
+                    $multiplier = $method->invoke($this->pointRuleService, $level->code);
+                    
                     return [
                         'id' => $level->id,
                         'name' => $level->name,
@@ -241,6 +249,7 @@ class PointController extends Controller
                         'discount_value' => $level->discount_value,
                         'max_discount_amount' => $level->max_discount_amount,
                         'min_order_amount' => $level->min_order_amount,
+                        'multiplier' => $multiplier,
                     ];
                 }),
             ],
