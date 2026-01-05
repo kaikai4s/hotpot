@@ -59,7 +59,11 @@
                   <span class="text-xl">{{ review.user?.nickname?.charAt(0) || 'U' }}</span>
                 </div>
                 <div>
-                  <p class="font-semibold text-gray-900">{{ review.user?.nickname || '匿名用户' }}</p>
+                  <p class="font-semibold text-gray-900">
+                    <span v-if="review.user?.equipped_title" class="text-yellow-600 font-bold mr-1">[{{ review.user.equipped_title }}]</span>
+                    {{ review.user?.nickname || '匿名用户' }}
+                    <span v-if="review.user?.level" class="text-purple-600 ml-1 text-sm">[{{ review.user.level.name }}]</span>
+                  </p>
                   <p class="text-sm text-gray-500">{{ formatDateTime(review.created_at) }}</p>
                 </div>
               </div>

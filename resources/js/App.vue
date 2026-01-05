@@ -31,13 +31,19 @@
             <el-icon><Calendar /></el-icon>
             <span>预约管理</span>
           </el-menu-item>
-          <el-menu-item index="/admin/deposits" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+          <el-menu-item index="/admin/deposits" class="mb-2 rounded-lg hover:bg-gray-700 transition-all relative">
             <el-icon><Money /></el-icon>
             <span>定金管理</span>
+            <span v-if="unviewedDepositsCount > 0" class="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+              {{ unviewedDepositsCount > 99 ? '99+' : unviewedDepositsCount }}
+            </span>
           </el-menu-item>
-          <el-menu-item index="/admin/reviews" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+          <el-menu-item index="/admin/reviews" class="mb-2 rounded-lg hover:bg-gray-700 transition-all relative">
             <el-icon><Star /></el-icon>
             <span>评价管理</span>
+            <span v-if="unviewedReviewsCount > 0" class="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+              {{ unviewedReviewsCount > 99 ? '99+' : unviewedReviewsCount }}
+            </span>
           </el-menu-item>
           <el-menu-item index="/admin/dishes" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
             <el-icon><Food /></el-icon>
@@ -47,9 +53,12 @@
             <el-icon><Grid /></el-icon>
             <span>桌位管理</span>
           </el-menu-item>
-          <el-menu-item index="/admin/orders" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+          <el-menu-item index="/admin/orders" class="mb-2 rounded-lg hover:bg-gray-700 transition-all relative">
             <el-icon><ShoppingBag /></el-icon>
             <span>订单管理</span>
+            <span v-if="unviewedOrdersCount > 0" class="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+              {{ unviewedOrdersCount > 99 ? '99+' : unviewedOrdersCount }}
+            </span>
           </el-menu-item>
               <el-menu-item index="/admin/admins" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
                 <el-icon><UserFilled /></el-icon>
@@ -75,6 +84,9 @@
                 </el-menu-item>
                 <el-menu-item index="/admin/point-statistics" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
                   <span>统计分析</span>
+                </el-menu-item>
+                <el-menu-item index="/admin/achievements" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+                  <span>成就管理</span>
                 </el-menu-item>
               </el-sub-menu>
               <el-sub-menu index="coupons-menu" class="sub-menu-custom">
@@ -157,17 +169,23 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue';
+import { computed, ref, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Calendar, Star, DataAnalysis, Food, Grid, ArrowDown, User, SwitchButton, UserFilled, Lock, Setting, Ticket, ShoppingBag, Money, Document } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { adminAuthApi } from './api/admin';
+import { adminOrderApi } from './api/admin/order';
+import { adminDepositApi } from './api/admin/deposit';
+import { adminReviewApi } from './api/admin/review';
 import type { AdminInfo } from './api/admin';
 
 const route = useRoute();
 const router = useRouter();
 const activeMenu = computed(() => route.path);
 const adminInfo = ref<AdminInfo | null>(null);
+const unviewedOrdersCount = ref(0);
+const unviewedDepositsCount = ref(0);
+const unviewedReviewsCount = ref(0);
 
 const isAdminRoute = computed(() => {
   // 后台路由统一以 /admin/ 开头（但排除 /admin/login）
@@ -205,6 +223,7 @@ const pageTitle = computed(() => {
         '/admin/points': '积分管理',
         '/admin/point-rules': '积分规则配置',
         '/admin/point-statistics': '积分统计分析',
+        '/admin/achievements': '成就管理',
         '/admin/coupons': '优惠券管理',
         '/admin/lottery': '抽奖活动',
         '/admin/roles': '角色权限',
@@ -245,6 +264,14 @@ const loadAdminInfo = async () => {
     } catch (error: any) {
       // 如果获取失败（如401），不跳转，只记录错误
       // 响应拦截器会处理跳转逻辑
+      
+      // 如果是超时错误，静默处理，不显示错误消息（避免干扰用户体验）
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        console.warn('获取管理员信息超时，使用缓存信息');
+        // 超时时不清除缓存，继续使用缓存的信息
+        return;
+      }
+      
       console.error('获取管理员信息失败:', error);
       // 如果是401错误，说明token无效，但不要在这里跳转，让响应拦截器处理
       if (error.response?.status === 401) {
@@ -255,6 +282,37 @@ const loadAdminInfo = async () => {
     }
   } catch (error) {
     console.error('loadAdminInfo异常:', error);
+  }
+};
+
+// 加载未查看数量统计
+const loadUnviewedCounts = async () => {
+  const token = sessionStorage.getItem('admin_token');
+  if (!token) {
+    return;
+  }
+
+  try {
+    // 并行加载三个统计
+    const [ordersRes, depositsRes, reviewsRes] = await Promise.allSettled([
+      adminOrderApi.getOrders({ page: 1, page_size: 1 }),
+      adminDepositApi.getDeposits({ page: 1, page_size: 1 }),
+      adminReviewApi.getReviews({ page: 1, page_size: 1 }),
+    ]);
+
+    if (ordersRes.status === 'fulfilled' && ordersRes.value.code === 200) {
+      unviewedOrdersCount.value = ordersRes.value.data?.unviewed_count || 0;
+    }
+
+    if (depositsRes.status === 'fulfilled' && depositsRes.value.code === 200) {
+      unviewedDepositsCount.value = depositsRes.value.data?.unviewed_count || 0;
+    }
+
+    if (reviewsRes.status === 'fulfilled' && reviewsRes.value.code === 200) {
+      unviewedReviewsCount.value = reviewsRes.value.data?.unviewed_count || 0;
+    }
+  } catch (error) {
+    console.error('加载未查看数量失败:', error);
   }
 };
 
@@ -292,28 +350,43 @@ router.afterEach((to) => {
   const isAdmin = to.path.startsWith('/admin/') && to.path !== '/admin/login';
   
   if (isAdmin) {
-    // 后台路由：加载管理员信息
+    // 后台路由：加载管理员信息和未查看数量
     setTimeout(() => {
       loadAdminInfo();
+      loadUnviewedCounts();
     }, 100);
   } else {
     // 前台路由：清除后台信息引用，确保不会显示后台登录信息
     // 注意：后台使用 sessionStorage 存储 token，前台使用 localStorage
     // 两者完全隔离，前台无法清除后台的登录状态
     adminInfo.value = null;
+    unviewedOrdersCount.value = 0;
+    unviewedDepositsCount.value = 0;
+    unviewedReviewsCount.value = 0;
+  }
+});
+
+// 监听路由变化，当进入订单/定金/评价管理页面时刷新未查看数量
+watch(() => route.path, (newPath) => {
+  if (isAdminRoute.value && (newPath === '/admin/orders' || newPath === '/admin/deposits' || newPath === '/admin/reviews')) {
+    loadUnviewedCounts();
   }
 });
 
 onMounted(() => {
-  // 只在后台路由时加载管理员信息，前台路由完全不加载
+  // 只在后台路由时加载管理员信息和未查看数量，前台路由完全不加载
   if (isAdminRoute.value) {
     // 使用 setTimeout 延迟加载，确保 token 已经设置
     setTimeout(() => {
       loadAdminInfo();
+      loadUnviewedCounts();
     }, 100);
   } else {
     // 前台路由：确保不加载后台信息，并清除可能存在的后台信息引用
     adminInfo.value = null;
+    unviewedOrdersCount.value = 0;
+    unviewedDepositsCount.value = 0;
+    unviewedReviewsCount.value = 0;
   }
 });
 </script>
@@ -404,6 +477,18 @@ body {
 
 :deep(.el-sub-menu .el-menu.el-menu--inline .el-menu-item.is-active span) {
   color: #ff6b6b !important;
+}
+
+/* 菜单项红点样式 */
+:deep(.el-menu-item.relative) {
+  position: relative;
+}
+
+:deep(.el-menu-item .absolute) {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
 }
 
 /* 子菜单标题样式 */

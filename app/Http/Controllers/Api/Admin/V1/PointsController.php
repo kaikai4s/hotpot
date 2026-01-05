@@ -56,6 +56,11 @@ class PointsController extends Controller
             $query->where('member_points.level', $request->input('level'));
         }
 
+        // 用户ID筛选
+        if ($request->filled('user_id')) {
+            $query->where('users.id', $request->input('user_id'));
+        }
+
         // 排序
         $sortBy = $request->input('sort_by', 'total_points');
         $sortOrder = $request->input('sort_order', 'desc');

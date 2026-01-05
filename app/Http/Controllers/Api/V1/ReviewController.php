@@ -101,7 +101,7 @@ class ReviewController extends Controller
                 $query->orderBy('created_at', 'desc');
         }
 
-        $reviews = $query->with('user')->paginate($pageSize, ['*'], 'page', $page);
+        $reviews = $query->with(['user.memberPoints'])->paginate($pageSize, ['*'], 'page', $page);
 
         $ratingDistribution = $dish->reviews()
             ->where('status', 'approved')
@@ -110,11 +110,19 @@ class ReviewController extends Controller
             ->pluck('count', 'rating')
             ->toArray();
 
+        // 格式化评价数据，包含用户称号和段位
+        $formattedReviews = $reviews->items();
+        foreach ($formattedReviews as $review) {
+            if ($review->user) {
+                $review->user->load('memberPoints');
+            }
+        }
+
         return response()->json([
             'code' => 200,
             'message' => 'success',
             'data' => [
-                'reviews' => $reviews->items(),
+                'reviews' => $formattedReviews,
                 'pagination' => [
                     'current_page' => $reviews->currentPage(),
                     'total_pages' => $reviews->lastPage(),
@@ -144,7 +152,7 @@ class ReviewController extends Controller
             'page_size' => 'nullable|integer|min:1|max:50',
         ]);
 
-        $query = \App\Models\Review::with(['user', 'dish', 'order', 'adminReplier', 'adopter']);
+        $query = \App\Models\Review::with(['user.memberPoints', 'dish', 'order', 'adminReplier', 'adopter']);
 
         // 如果请求当前用户的评价，则不过滤状态（显示所有状态的评价）
         // 否则只显示已审核通过的评价
@@ -179,11 +187,19 @@ class ReviewController extends Controller
         $pageSize = $request->input('page_size', 20);
         $reviews = $query->orderBy('created_at', 'desc')->paginate($pageSize, ['*'], 'page', $page);
 
+        // 格式化评价数据，确保用户信息包含称号和段位
+        $formattedReviews = $reviews->items();
+        foreach ($formattedReviews as $review) {
+            if ($review->user && !$review->user->relationLoaded('memberPoints')) {
+                $review->user->load('memberPoints');
+            }
+        }
+
         return response()->json([
             'code' => 200,
             'message' => '获取成功',
             'data' => [
-                'reviews' => $reviews->items(),
+                'reviews' => $formattedReviews,
                 'pagination' => [
                     'current_page' => $reviews->currentPage(),
                     'total_pages' => $reviews->lastPage(),
@@ -205,7 +221,7 @@ class ReviewController extends Controller
             'page_size' => 'nullable|integer|min:1|max:50',
         ]);
 
-        $query = \App\Models\Review::with(['user', 'dish', 'order', 'adminReplier', 'adopter'])
+        $query = \App\Models\Review::with(['user.memberPoints', 'dish', 'order', 'adminReplier', 'adopter'])
             ->where('status', 'approved')
             ->where('is_adopted', true)
             ->where('tracking_status', '!=', 'cancelled');
@@ -218,11 +234,19 @@ class ReviewController extends Controller
         $pageSize = $request->input('page_size', 20);
         $reviews = $query->orderBy('adopted_at', 'desc')->paginate($pageSize, ['*'], 'page', $page);
 
+        // 格式化评价数据，确保用户信息包含称号和段位
+        $formattedReviews = $reviews->items();
+        foreach ($formattedReviews as $review) {
+            if ($review->user && !$review->user->relationLoaded('memberPoints')) {
+                $review->user->load('memberPoints');
+            }
+        }
+
         return response()->json([
             'code' => 200,
             'message' => '获取成功',
             'data' => [
-                'reviews' => $reviews->items(),
+                'reviews' => $formattedReviews,
                 'pagination' => [
                     'current_page' => $reviews->currentPage(),
                     'total_pages' => $reviews->lastPage(),

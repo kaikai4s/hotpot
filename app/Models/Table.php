@@ -12,6 +12,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Table extends Model
 {
@@ -27,6 +28,8 @@ class Table extends Model
         'default_position_y',
         'status',
         'occupied_at',
+        'occupied_by_user_id',
+        'team_code',
     ];
 
     protected $casts = [
@@ -38,6 +41,13 @@ class Table extends Model
         'occupied_at' => 'datetime',
     ];
 
+    /**
+     * 确保 occupied_by_user_id 字段在序列化时被包含
+     */
+    protected $visible = [];
+    
+    protected $hidden = [];
+
     public function reservations(): HasMany
     {
         return $this->hasMany(Reservation::class);
@@ -46,6 +56,11 @@ class Table extends Model
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function occupiedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'occupied_by_user_id');
     }
 }
 

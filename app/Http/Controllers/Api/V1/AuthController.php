@@ -14,6 +14,7 @@ use App\Models\Configuration;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -23,9 +24,11 @@ class AuthController extends Controller
     {
         $request->validate([
             'code' => 'required|string',
+            'invite_code' => 'nullable|string|max:50',
         ]);
 
         $code = $request->input('code');
+        $inviteCode = $request->input('invite_code');
 
         try {
             // 从配置中获取微信登录模式
@@ -120,6 +123,21 @@ class AuthController extends Controller
                 $user->save();
             }
 
+            // 如果是新用户且提供了邀请码，处理邀请关系
+            if ($user->wasRecentlyCreated && $inviteCode) {
+                try {
+                    $invitationService = app(\App\Services\InvitationService::class);
+                    $invitationService->registerWithInviteCode($user, $inviteCode);
+                } catch (\Exception $e) {
+                    // 邀请码处理失败不影响登录，只记录日志
+                    \Illuminate\Support\Facades\Log::warning('处理邀请码失败', [
+                        'user_id' => $user->id,
+                        'invite_code' => $inviteCode,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             $token = $user->createToken('wechat-web')->plainTextToken;
 
             return response()->json([
@@ -145,6 +163,13 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user();
+        
+        // 获取用户段位
+        $memberPoint = $user->memberPoints;
+        $level = null;
+        if ($memberPoint) {
+            $level = \App\Models\PointLevel::where('code', $memberPoint->level)->first();
+        }
 
         return response()->json([
             'code' => 200,
@@ -155,6 +180,11 @@ class AuthController extends Controller
                     'nickname' => $user->nickname,
                     'avatar_url' => $user->avatar_url,
                     'phone' => $user->phone,
+                    'equipped_title' => $user->equipped_title,
+                    'level' => $level ? [
+                        'code' => $level->code,
+                        'name' => $level->name,
+                    ] : null,
                 ],
             ],
         ]);

@@ -69,6 +69,12 @@
                   <el-tag :type="getStatusTag(order.status)">{{ getStatusText(order.status) }}</el-tag>
                 </div>
                 <p class="text-sm text-gray-500">创建时间：{{ formatDateTime(order.created_at) }}</p>
+                <div v-if="order.table?.team_code" class="mt-2">
+                  <el-tag type="info" size="small">
+                    <el-icon class="mr-1"><UserFilled /></el-icon>
+                    团队码：{{ order.table.team_code }}
+                  </el-tag>
+                </div>
               </div>
               <div class="text-right">
                 <div class="text-2xl font-bold text-red-600 mb-2">¥{{ order.total_amount }}</div>
@@ -145,7 +151,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Loading } from '@element-plus/icons-vue';
+import { Loading, UserFilled } from '@element-plus/icons-vue';
 import FrontendLayout from '../../components/frontend/FrontendLayout.vue';
 import { orderApi, type Order } from '../../api/order';
 
@@ -170,6 +176,7 @@ const getStatusTag = (status: string) => {
   const tags: Record<string, string> = {
     pending: 'warning',
     paid: 'success',
+    pending_review: 'warning',
     completed: '',
     cancelled: 'info',
   };
@@ -180,6 +187,7 @@ const getStatusText = (status: string) => {
   const texts: Record<string, string> = {
     pending: '待支付',
     paid: '已支付',
+    pending_review: '待评价',
     completed: '已完成',
     cancelled: '已取消',
   };

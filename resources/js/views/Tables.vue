@@ -53,10 +53,14 @@
                   <el-tag :type="getStatusTagType(table.status)" size="small" class="mb-2">
                     {{ getStatusText(table.status) }}
                   </el-tag>
-                  <!-- 使用中时显示使用时间 -->
+                  <!-- 使用中时显示使用时间和使用人 -->
                   <div v-if="table.status === 'occupied' && table.occupied_at" class="mt-2 text-xs text-gray-500">
                     <div>开始：{{ formatTime(table.occupied_at) }}</div>
                     <div class="text-orange-600 font-semibold">已用：{{ getElapsedTime(table.occupied_at) }}</div>
+                    <div v-if="table.occupied_by_user" class="mt-1 text-blue-600">
+                      <div class="font-semibold">使用人：{{ table.occupied_by_user.nickname }}</div>
+                      <div v-if="table.occupied_by_user.phone" class="text-gray-500">手机：{{ table.occupied_by_user.phone }}</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -130,15 +134,49 @@
               <span class="text-sm text-gray-500 ml-2">（类型请在布局编辑器中修改）</span>
             </el-form-item>
             <el-form-item label="状态">
-              <el-select v-model="tableForm.status" style="width: 150px">
+              <el-select v-model="tableForm.status" style="width: 150px" @change="handleStatusChange">
                 <el-option label="可用" value="available" />
                 <el-option label="已预约" value="reserved" />
                 <el-option label="使用中" value="occupied" />
                 <el-option label="维护中" value="maintenance" />
               </el-select>
             </el-form-item>
+            <!-- 状态为使用中时，可以填写使用人（可选） -->
+            <el-form-item v-if="tableForm.status === 'occupied'" label="使用人">
+              <div class="mb-2">
+                <el-text type="info" size="small">可选：填写使用人有助于追踪桌位使用情况</el-text>
+              </div>
+              <el-select
+                v-model="tableForm.occupied_by_user_id"
+                filterable
+                remote
+                :remote-method="searchUsers"
+                :loading="searchingUsers"
+                placeholder="搜索用户（昵称、手机号、ID）- 可选"
+                clearable
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="user in userOptions"
+                  :key="user.id"
+                  :label="`${user.nickname || '未设置'} (ID: ${user.id}${user.phone ? ', ' + user.phone : ''})`"
+                  :value="user.id"
+                >
+                  <div class="flex items-center gap-2">
+                    <el-avatar v-if="user.avatar_url" :src="user.avatar_url" :size="24" />
+                    <span>{{ user.nickname || '未设置' }}</span>
+                    <span class="text-gray-400 text-xs">ID: {{ user.id }}</span>
+                    <span v-if="user.phone" class="text-gray-400 text-xs">{{ user.phone }}</span>
+                  </div>
+                </el-option>
+              </el-select>
+              <div v-if="selectedTable?.occupied_by_user" class="mt-2 text-sm text-gray-600">
+                当前使用人：{{ selectedTable.occupied_by_user.nickname }}
+                <span v-if="selectedTable.occupied_by_user.phone">（{{ selectedTable.occupied_by_user.phone }}）</span>
+              </div>
+            </el-form-item>
             <!-- 使用中时显示使用时间信息 -->
-            <el-form-item v-if="selectedTable.status === 'occupied' && selectedTable.occupied_at" label="使用时间">
+            <el-form-item v-if="selectedTable?.status === 'occupied' && selectedTable.occupied_at" label="使用时间">
               <div class="space-y-1">
                 <div class="text-sm text-gray-600">开始时间：{{ formatDateTime(selectedTable.occupied_at) }}</div>
                 <div class="text-sm text-orange-600 font-semibold">已使用时长：{{ getElapsedTime(selectedTable.occupied_at) }}</div>
@@ -230,7 +268,11 @@ const tableForm = ref({
   name: '',
   capacity: 4,
   status: 'available' as 'available' | 'reserved' | 'occupied' | 'maintenance',
+  occupied_by_user_id: null as number | null,
 });
+
+const userOptions = ref<User[]>([]);
+const searchingUsers = ref(false);
 
 const tableFormRules: FormRules = {
   name: [
@@ -362,7 +404,14 @@ const viewTable = (table: Table) => {
     name: table.name,
     capacity: table.capacity,
     status: table.status,
+    occupied_by_user_id: table.occupied_by_user_id ?? null,
   };
+  // 如果已有使用人，添加到选项列表
+  if (table.occupied_by_user) {
+    userOptions.value = [table.occupied_by_user];
+  } else {
+    userOptions.value = [];
+  }
   // 初始化默认位置表单
   defaultPositionForm.value = {
     default_position_x: table.default_position_x ?? null,
@@ -378,7 +427,14 @@ const resetTableForm = () => {
       name: selectedTable.value.name,
       capacity: selectedTable.value.capacity,
       status: selectedTable.value.status,
+      occupied_by_user_id: selectedTable.value.occupied_by_user_id ?? null,
     };
+    // 重置用户选项
+    if (selectedTable.value.occupied_by_user) {
+      userOptions.value = [selectedTable.value.occupied_by_user];
+    } else {
+      userOptions.value = [];
+    }
     // 重置默认位置表单
     defaultPositionForm.value = {
       default_position_x: selectedTable.value.default_position_x ?? null,
@@ -471,11 +527,18 @@ const saveTableInfo = async () => {
     
     savingTableInfo.value = true;
     try {
-      await tableApi.update(selectedTable.value!.id, {
+      const updateData: any = {
         name: tableForm.value.name,
         capacity: tableForm.value.capacity,
         status: tableForm.value.status,
-      });
+      };
+      
+      // 如果状态为使用中，传递使用人ID
+      if (tableForm.value.status === 'occupied') {
+        updateData.occupied_by_user_id = tableForm.value.occupied_by_user_id;
+      }
+      
+      await tableApi.update(selectedTable.value!.id, updateData);
       ElMessage.success('桌位信息已更新');
       await fetchTables();
       // 更新当前选中的桌位数据
@@ -485,6 +548,8 @@ const saveTableInfo = async () => {
           selectedTable.value.name = updatedTable.name;
           selectedTable.value.capacity = updatedTable.capacity;
           selectedTable.value.status = updatedTable.status;
+          selectedTable.value.occupied_by_user_id = updatedTable.occupied_by_user_id;
+          selectedTable.value.occupied_by_user = updatedTable.occupied_by_user;
         }
       }
     } catch (error: any) {
@@ -506,32 +571,46 @@ const saveTableInfo = async () => {
   });
 };
 
-const handleStatusChange = async (newStatus: string) => {
-  if (!selectedTable.value) return;
+// 搜索用户
+const searchUsers = async (query: string) => {
+  if (!query || query.trim().length < 1) {
+    userOptions.value = [];
+    return;
+  }
   
+  searchingUsers.value = true;
   try {
-    await tableApi.update(selectedTable.value.id, { status: newStatus });
-    ElMessage.success('状态已更新');
-    await fetchTables();
-    // 更新当前选中的桌位状态
-    if (selectedTable.value) {
-      selectedTable.value.status = newStatus as any;
-      tableForm.value.status = newStatus as any;
+    const response = await userApi.getList({
+      search: query.trim(),
+      per_page: 20,
+      page: 1,
+    });
+    
+    if (response.code === 200 && response.data?.users) {
+      userOptions.value = response.data.users;
+    } else {
+      userOptions.value = [];
     }
   } catch (error: any) {
-    console.error('更新状态失败:', error);
-    const message = error.response?.data?.message || error.message || '更新状态失败，请重试';
-    ElMessage.error(message);
-    // 恢复原状态
-    await fetchTables();
-    if (selectedTable.value) {
-      const table = tables.value.find(t => t.id === selectedTable.value!.id);
-      if (table) {
-        selectedTable.value.status = table.status;
-        tableForm.value.status = table.status;
-      }
-    }
+    console.error('搜索用户失败:', error);
+    userOptions.value = [];
+  } finally {
+    searchingUsers.value = false;
   }
+};
+
+const handleStatusChange = (newStatus: string) => {
+  // 如果状态改为使用中，提示可以填写使用人（可选）
+  if (newStatus === 'occupied') {
+    ElMessage.info('状态已改为"使用中"，您可以选择填写使用人（可选）');
+  }
+  
+  // 如果状态从使用中改为其他状态，清除使用人
+  if (selectedTable.value?.status === 'occupied' && newStatus !== 'occupied') {
+    tableForm.value.occupied_by_user_id = null;
+  }
+  
+  // 状态变更不会立即保存，需要点击"保存修改"按钮
 };
 
 const fetchTables = async () => {

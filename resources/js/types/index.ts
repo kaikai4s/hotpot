@@ -61,6 +61,14 @@ export interface Table {
   };
   status: 'available' | 'reserved' | 'occupied' | 'maintenance';
   occupied_at?: string | null; // 使用开始时间（ISO 8601格式）
+  occupied_by_user_id?: number | null; // 使用人用户ID
+  occupied_by_user?: {
+    id: number;
+    nickname: string;
+    phone?: string;
+    avatar_url?: string;
+  } | null; // 使用人信息
+  team_code?: string | null; // 团队点餐码
 }
 
 export interface Review {

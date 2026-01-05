@@ -11,6 +11,11 @@ export interface UserInfo {
   nickname: string;
   avatar_url?: string | null;
   phone?: string | null;
+  equipped_title?: string | null;
+  level?: {
+    code: string;
+    name: string;
+  } | null;
 }
 
 export interface UserLoginResponse {
@@ -33,8 +38,12 @@ export const userAuthApi = {
   /**
    * 微信登录
    */
-  wechatLogin: (code: string): Promise<ApiResponse<UserLoginResponse>> => {
-    return apiClient.post('/v1/auth/wechat-login', { code });
+  wechatLogin: (code: string, inviteCode?: string): Promise<ApiResponse<UserLoginResponse>> => {
+    const payload: { code: string; invite_code?: string } = { code };
+    if (inviteCode) {
+      payload.invite_code = inviteCode;
+    }
+    return apiClient.post('/v1/auth/wechat-login', payload);
   },
   
   /**

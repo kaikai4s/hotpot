@@ -37,6 +37,8 @@ class Review extends Model
         'adopted_by',
         'tracking_status',
         'tracking_updates',
+        'is_viewed',
+        'viewed_at',
     ];
 
     protected $casts = [
@@ -49,6 +51,8 @@ class Review extends Model
         'is_adopted' => 'boolean',
         'adopted_at' => 'datetime',
         'tracking_updates' => 'array',
+        'is_viewed' => 'boolean',
+        'viewed_at' => 'datetime',
     ];
 
     public function user(): BelongsTo

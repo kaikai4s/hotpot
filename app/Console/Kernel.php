@@ -37,6 +37,12 @@ class Kernel extends ConsoleKernel
             ->everyFiveMinutes()
             ->withoutOverlapping()
             ->runInBackground();
+
+        // 每30分钟检查一次超时占用的桌位（超时时间从配置读取，默认4小时）
+        $schedule->command('tables:release-expired-occupations')
+            ->everyThirtyMinutes()
+            ->withoutOverlapping()
+            ->runInBackground();
     }
 
     protected function commands(): void

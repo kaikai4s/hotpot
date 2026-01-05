@@ -23,6 +23,7 @@ export interface DepositsResponse {
     refunded_amount: number;
     forfeited_amount: number;
   };
+  unviewed_count?: number;
 }
 
 export const adminDepositApi = {

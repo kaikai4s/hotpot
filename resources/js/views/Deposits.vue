@@ -65,6 +65,14 @@
           @clear="handleFilter"
           @keyup.enter="handleFilter"
         />
+        <el-input
+          v-model="filters.user_nickname"
+          placeholder="用户昵称"
+          class="w-48"
+          clearable
+          @clear="handleFilter"
+          @keyup.enter="handleFilter"
+        />
         <el-date-picker
           v-model="filters.date_from"
           type="date"
@@ -121,6 +129,12 @@
             <el-tag :type="getDepositStatusType(row.deposit_status)" effect="dark">
               {{ getDepositStatusText(row.deposit_status) }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="查看状态" width="100">
+          <template #default="{ row }">
+            <el-tag v-if="row.is_viewed" type="success" size="small">已查看</el-tag>
+            <el-tag v-else type="warning" size="small">未查看</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="deposit_paid_at" label="支付时间" width="180">
@@ -230,6 +244,7 @@ const pagination = ref({
 const filters = ref({
   deposit_status: '',
   reservation_code: '',
+  user_nickname: '',
   date_from: '',
   date_to: '',
 });
@@ -285,6 +300,9 @@ const fetchData = async () => {
     if (filters.value.reservation_code) {
       params.reservation_code = filters.value.reservation_code;
     }
+    if (filters.value.user_nickname) {
+      params.user_nickname = filters.value.user_nickname;
+    }
     if (filters.value.date_from) {
       params.date_from = filters.value.date_from;
     }
@@ -330,6 +348,7 @@ const resetFilter = () => {
   filters.value = {
     deposit_status: '',
     reservation_code: '',
+    user_nickname: '',
     date_from: '',
     date_to: '',
   };

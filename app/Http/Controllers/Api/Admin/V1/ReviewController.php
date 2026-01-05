@@ -30,32 +30,59 @@ class ReviewController extends Controller
             'tracking_status' => 'nullable|in:pending,in_progress,completed,cancelled',
             'is_adopted' => 'nullable', // 移除 boolean 验证，使用 $request->boolean() 处理
             'rating' => 'nullable|integer|min:1|max:5',
+            'user_nickname' => 'nullable|string|max:64',
             'page' => 'nullable|integer|min:1',
             'page_size' => 'nullable|integer|min:1|max:100',
         ]);
 
-        $query = Review::with(['user', 'dish', 'order', 'adminReplier', 'adopter']);
+        // 优化查询：只加载必要的关联字段，减少查询时间
+        $query = Review::with([
+            'user:id,nickname,avatar_url',
+            'dish:id,name',
+            'order:id,order_no',
+            'adminReplier:id,name',
+            'adopter:id,name',
+        ]);
 
         if ($request->filled('status')) {
-            $query->where('status', $request->input('status'));
+            $query->where('reviews.status', $request->input('status'));
         }
 
         if ($request->filled('tracking_status')) {
-            $query->where('tracking_status', $request->input('tracking_status'));
+            $query->where('reviews.tracking_status', $request->input('tracking_status'));
         }
 
         if ($request->has('is_adopted')) {
             // 使用 boolean() 方法正确处理字符串 "true"/"false" 和布尔值
-            $query->where('is_adopted', $request->boolean('is_adopted'));
+            $query->where('reviews.is_adopted', $request->boolean('is_adopted'));
         }
 
         if ($request->filled('rating')) {
-            $query->where('rating', $request->input('rating'));
+            $query->where('reviews.rating', $request->input('rating'));
+        }
+
+        // 用户昵称模糊筛选 - 优化：使用 whereHas 但添加索引提示，或使用子查询
+        if ($request->filled('user_nickname')) {
+            $userNickname = $request->input('user_nickname');
+            // 使用子查询优化性能，避免 N+1 问题
+            $userIds = \App\Models\User::where('nickname', 'like', '%' . $userNickname . '%')
+                ->pluck('id')
+                ->toArray();
+            
+            if (!empty($userIds)) {
+                $query->whereIn('reviews.user_id', $userIds);
+            } else {
+                // 如果没有匹配的用户，返回空结果
+                $query->whereRaw('1 = 0');
+            }
         }
 
         $page = $request->input('page', 1);
         $pageSize = $request->input('page_size', 20);
-        $reviews = $query->orderBy('created_at', 'desc')->paginate($pageSize, ['*'], 'page', $page);
+        $reviews = $query->orderBy('reviews.created_at', 'desc')->paginate($pageSize, ['reviews.*'], 'page', $page);
+
+        // 统计未查看评价数量 - 优化：使用缓存或索引查询
+        $unviewedCount = Review::where('is_viewed', false)->count();
 
         return response()->json([
             'code' => 200,
@@ -67,6 +94,7 @@ class ReviewController extends Controller
                     'total_count' => $reviews->total(),
                     'page_size' => $reviews->perPage(),
                 ],
+                'unviewed_count' => $unviewedCount,
             ],
         ]);
     }
@@ -75,6 +103,15 @@ class ReviewController extends Controller
     {
         $review = Review::with(['user', 'dish', 'order', 'adminReplier', 'adopter'])
             ->findOrFail($reviewId);
+
+        // 标记为已查看
+        if (!$review->is_viewed) {
+            $review->update([
+                'is_viewed' => true,
+                'viewed_at' => now(),
+            ]);
+            $review->refresh();
+        }
 
         return response()->json([
             'code' => 200,

@@ -23,8 +23,18 @@ class UserController extends Controller
     {
         $query = User::with(['memberPoints', 'orders', 'reviews', 'userCoupons']);
 
-        // 搜索
-        if ($request->has('search')) {
+        // 用户ID精确筛选（优先级最高）
+        if ($request->filled('user_id')) {
+            $query->where('id', $request->input('user_id'));
+        }
+
+        // 昵称精确筛选
+        if ($request->filled('nickname')) {
+            $query->where('nickname', $request->input('nickname'));
+        }
+
+        // 搜索（模糊搜索，仅在未指定精确筛选时使用）
+        if ($request->has('search') && !$request->filled('user_id') && !$request->filled('nickname')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('nickname', 'like', "%{$search}%")
@@ -169,7 +179,8 @@ class UserController extends Controller
         $user = User::with([
             'memberPoints',
             'orders' => function ($query) {
-                $query->orderBy('created_at', 'desc')->limit(10);
+                $query->with(['items.dish', 'items.combo', 'table'])
+                      ->orderBy('created_at', 'desc');
             },
             'reviews' => function ($query) {
                 $query->orderBy('created_at', 'desc')->limit(10);
@@ -182,6 +193,24 @@ class UserController extends Controller
             },
             'reservations' => function ($query) {
                 $query->orderBy('created_at', 'desc')->limit(10);
+            },
+            // 邀请信息
+            'invitations' => function ($query) {
+                $query->with(['invitee' => function ($q) {
+                    $q->with('memberPoints');
+                }])->orderBy('created_at', 'desc');
+            },
+            'inviter' => function ($query) {
+                $query->with('memberPoints');
+            },
+            'invitees' => function ($query) {
+                $query->with('memberPoints')->orderBy('created_at', 'desc');
+            },
+            // 成就信息
+            'achievements' => function ($query) {
+                $query->with(['achievementTemplate'])
+                      ->whereNotNull('completed_at')
+                      ->orderBy('completed_at', 'desc');
             },
         ])->findOrFail($id);
 
@@ -202,6 +231,13 @@ class UserController extends Controller
             'reservations_count' => $user->reservations()->count(),
             'point_earned_total' => $user->pointTransactions()->where('type', 'earn')->sum('points') ?? 0,
             'point_redeemed_total' => abs($user->pointTransactions()->where('type', 'redeem')->sum('points') ?? 0),
+            // 邀请统计
+            'invitations_count' => $user->invitations()->count(),
+            'successful_invitations_count' => $user->invitations()->where('status', 'completed')->count(),
+            'invitees_count' => $user->invitees()->count(),
+            // 成就统计
+            'achievements_count' => $user->achievements()->whereNotNull('completed_at')->count(),
+            'total_achievements_count' => \App\Models\AchievementTemplate::where('is_active', true)->count(),
         ];
 
         // 获取段位信息
@@ -210,6 +246,41 @@ class UserController extends Controller
             $levelInfo = \App\Models\PointLevel::where('code', $memberPoint->level)->first();
         }
 
+        // 获取所有订单（用于详情显示）
+        $allOrders = $user->orders()->with(['items.dish', 'items.combo', 'table'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // 获取所有成就（包括未完成的）
+        $allAchievements = \App\Models\UserAchievement::where('user_id', $user->id)
+            ->with('achievementTemplate')
+            ->orderByRaw('completed_at IS NULL ASC') // 先显示已完成的
+            ->orderBy('completed_at', 'desc')
+            ->get()
+            ->map(function ($achievement) {
+                // 处理进度数据，确保前端可以正确访问
+                $progress = $achievement->progress ?? ['current' => 0, 'target' => 0];
+                return [
+                    'id' => $achievement->id,
+                    'user_id' => $achievement->user_id,
+                    'achievement_template_id' => $achievement->achievement_template_id,
+                    'is_completed' => !is_null($achievement->completed_at),
+                    'current_progress' => $progress['current'] ?? 0,
+                    'target_progress' => $progress['target'] ?? 0,
+                    'completed_at' => $achievement->completed_at?->toDateTimeString(),
+                    'reward_issued' => $achievement->reward_issued,
+                    'created_at' => $achievement->created_at->toDateTimeString(),
+                    'updated_at' => $achievement->updated_at->toDateTimeString(),
+                    'achievement_template' => $achievement->achievementTemplate ? [
+                        'id' => $achievement->achievementTemplate->id,
+                        'name' => $achievement->achievementTemplate->name,
+                        'description' => $achievement->achievementTemplate->description,
+                        'icon' => $achievement->achievementTemplate->icon,
+                        'category' => $achievement->achievementTemplate->category,
+                    ] : null,
+                ];
+            });
+
         return response()->json([
             'code' => 200,
             'message' => 'success',
@@ -217,6 +288,8 @@ class UserController extends Controller
                 'user' => $user,
                 'statistics' => $statistics,
                 'level_info' => $levelInfo,
+                'all_orders' => $allOrders,
+                'all_achievements' => $allAchievements,
             ],
         ]);
     }

@@ -31,6 +31,11 @@ use App\Http\Controllers\Api\Admin\V1\RoleController;
 use App\Http\Controllers\Api\Admin\V1\TableController;
 use App\Http\Controllers\Api\Admin\V1\UploadController;
 use App\Http\Controllers\Api\Admin\V1\UserController;
+use App\Http\Controllers\Api\Admin\V1\TaskTemplateController;
+use App\Http\Controllers\Api\Admin\V1\AchievementTemplateController;
+use App\Http\Controllers\Api\Admin\V1\InvitationStatisticsController;
+use App\Http\Controllers\Api\Admin\V1\CheckinStatisticsController;
+use App\Http\Controllers\Api\Admin\V1\ShareStatisticsController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin/v1')->group(function () {
@@ -215,6 +220,42 @@ Route::prefix('admin/v1')->group(function () {
         
         // 抽奖记录
         Route::get('/lottery/activities/{activityId}/records', [LotteryController::class, 'records'])->middleware('permission:coupons.view');
+
+        // 任务模板管理
+        Route::prefix('task-templates')->group(function () {
+            Route::get('/', [TaskTemplateController::class, 'index'])->middleware('permission:points.view');
+            Route::get('/{id}', [TaskTemplateController::class, 'show'])->middleware('permission:points.view');
+            Route::post('/', [TaskTemplateController::class, 'store'])->middleware('permission:points.update');
+            Route::put('/{id}', [TaskTemplateController::class, 'update'])->middleware('permission:points.update');
+            Route::delete('/{id}', [TaskTemplateController::class, 'destroy'])->middleware('permission:points.update');
+        });
+
+        // 成就模板管理
+        Route::prefix('achievement-templates')->group(function () {
+            Route::get('/', [AchievementTemplateController::class, 'index'])->middleware('permission:points.view');
+            Route::get('/{id}', [AchievementTemplateController::class, 'show'])->middleware('permission:points.view');
+            Route::post('/', [AchievementTemplateController::class, 'store'])->middleware('permission:points.update');
+            Route::put('/{id}', [AchievementTemplateController::class, 'update'])->middleware('permission:points.update');
+            Route::delete('/{id}', [AchievementTemplateController::class, 'destroy'])->middleware('permission:points.update');
+        });
+
+        // 邀请数据统计
+        Route::prefix('invitation-statistics')->group(function () {
+            Route::get('/', [InvitationStatisticsController::class, 'index'])->middleware('permission:users.view');
+            Route::get('/statistics', [InvitationStatisticsController::class, 'statistics'])->middleware('permission:users.view');
+        });
+
+        // 签到数据统计
+        Route::prefix('checkin-statistics')->group(function () {
+            Route::get('/', [CheckinStatisticsController::class, 'index'])->middleware('permission:users.view');
+            Route::get('/statistics', [CheckinStatisticsController::class, 'statistics'])->middleware('permission:users.view');
+        });
+
+        // 分享数据统计
+        Route::prefix('share-statistics')->group(function () {
+            Route::get('/', [ShareStatisticsController::class, 'index'])->middleware('permission:users.view');
+            Route::get('/statistics', [ShareStatisticsController::class, 'statistics'])->middleware('permission:users.view');
+        });
     });
 });
 

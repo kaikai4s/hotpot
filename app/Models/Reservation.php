@@ -40,6 +40,8 @@ class Reservation extends Model
         'deposit_data',
         'arrived_at',
         'order_id',
+        'is_viewed',
+        'viewed_at',
     ];
 
     protected $casts = [
@@ -54,6 +56,8 @@ class Reservation extends Model
         'deposit_refunded_at' => 'datetime',
         'arrived_at' => 'datetime',
         'deposit_data' => 'array',
+        'is_viewed' => 'boolean',
+        'viewed_at' => 'datetime',
     ];
 
     public function user(): BelongsTo

@@ -75,7 +75,7 @@
             <div class="flex items-center justify-between">
               <span class="text-2xl font-bold text-red-600">¥{{ dish.price }}</span>
               <button
-                @click.stop="addToCart(dish)"
+                @click.stop="showAddToCartDialog(dish)"
                 :disabled="dish.status !== 'available'"
                 class="bg-gradient-to-r from-red-500 to-orange-500 text-white px-6 py-2 rounded-lg hover:from-red-600 hover:to-orange-600 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -92,6 +92,36 @@
         <p class="text-xl text-gray-600">暂无符合条件的菜品</p>
       </div>
     </div>
+
+    <!-- 加入购物车数量选择对话框 -->
+    <el-dialog
+      v-model="showQuantityDialog"
+      title="选择数量"
+      width="400px"
+    >
+      <div v-if="selectedDishForCart" class="space-y-4">
+        <div class="text-center">
+          <h3 class="text-xl font-bold text-gray-900 mb-2">{{ selectedDishForCart.name }}</h3>
+          <p class="text-gray-600 mb-4">单价：¥{{ selectedDishForCart.price }}</p>
+        </div>
+        <div class="flex items-center justify-center">
+          <el-input-number
+            v-model="cartQuantity"
+            :min="1"
+            :max="99"
+            size="large"
+            class="w-40"
+          />
+        </div>
+        <div class="text-center text-lg font-semibold text-red-600">
+          小计：¥{{ (selectedDishForCart.price * cartQuantity).toFixed(2) }}
+        </div>
+        <div class="flex gap-3">
+          <el-button @click="showQuantityDialog = false" class="flex-1">取消</el-button>
+          <el-button type="primary" @click="confirmAddToCart" class="flex-1">确定</el-button>
+        </div>
+      </div>
+    </el-dialog>
 
     <!-- 菜品详情对话框 -->
     <el-dialog
@@ -121,7 +151,7 @@
             <span class="text-3xl font-bold text-red-600">¥{{ selectedDish.price }}</span>
           </div>
           <div class="flex gap-4">
-            <el-button type="primary" size="large" @click="addToCart(selectedDish)">
+            <el-button type="primary" size="large" @click="showAddToCartDialog(selectedDish)">
               加入购物车
             </el-button>
             <el-button size="large" @click="viewReviews(selectedDish.id)">
@@ -175,6 +205,9 @@ const pageSize = ref(20);
 const total = ref(0);
 const showDetailDialog = ref(false);
 const selectedDish = ref<Dish | null>(null);
+const showQuantityDialog = ref(false);
+const selectedDishForCart = ref<Dish | null>(null);
+const cartQuantity = ref(1);
 
 // 排序和筛选已在后端API处理，这里不需要前端过滤
 
@@ -183,13 +216,27 @@ const viewDishDetail = (dish: Dish) => {
   showDetailDialog.value = true;
 };
 
-const addToCart = (dish: Dish) => {
+const showAddToCartDialog = (dish: Dish) => {
   if (dish.status !== 'available') {
     ElMessage.warning('该菜品暂不可用');
     return;
   }
-  cartStore.addDish(dish, 1);
-  ElMessage.success(`${dish.name} 已加入购物车`);
+  selectedDishForCart.value = dish;
+  // 检查购物车中是否已有该菜品，如果有则使用已有数量
+  const existingQuantity = cartStore.getDishQuantity(dish.id);
+  cartQuantity.value = existingQuantity > 0 ? existingQuantity : 1;
+  showQuantityDialog.value = true;
+};
+
+
+const confirmAddToCart = () => {
+  if (!selectedDishForCart.value) return;
+  
+  cartStore.addDish(selectedDishForCart.value, cartQuantity.value);
+  ElMessage.success(`${selectedDishForCart.value.name} x${cartQuantity.value} 已加入购物车`);
+  showQuantityDialog.value = false;
+  selectedDishForCart.value = null;
+  cartQuantity.value = 1;
 };
 
 const viewReviews = (dishId: number) => {

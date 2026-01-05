@@ -70,7 +70,11 @@
                   <img v-if="userInfo?.avatar_url" :src="userInfo.avatar_url" alt="头像" class="w-full h-full rounded-full object-cover" />
                   <span v-else class="text-white text-sm font-bold">{{ userInfo?.nickname?.charAt(0) || 'U' }}</span>
                 </div>
-                <span class="text-sm font-medium text-gray-800 hidden md:block">{{ userInfo?.nickname || '用户' }}</span>
+                <span class="text-sm font-medium text-gray-800 hidden md:block">
+                  <span v-if="userInfo?.equipped_title" class="text-yellow-600 font-bold">[{{ userInfo.equipped_title }}]</span>
+                  {{ userInfo?.nickname || '用户' }}
+                  <span v-if="userInfo?.level" class="text-purple-600 ml-1">[{{ userInfo.level.name }}]</span>
+                </span>
                 <el-icon class="text-gray-500 ml-2"><ArrowDown /></el-icon>
               </div>
               <template #dropdown>

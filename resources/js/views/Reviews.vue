@@ -60,6 +60,14 @@
           active-text="仅显示已采纳"
           @change="handleFilter"
         />
+        <el-input
+          v-model="filters.user_nickname"
+          placeholder="用户昵称"
+          class="w-48"
+          clearable
+          @clear="handleFilter"
+          @keyup.enter="handleFilter"
+        />
         <el-button type="primary" @click="handleFilter">搜索</el-button>
         <el-button @click="resetFilter">重置</el-button>
       </div>
@@ -103,6 +111,12 @@
             <el-tag :type="row.status === 'approved' ? 'success' : row.status === 'rejected' ? 'danger' : 'warning'" effect="dark">
               {{ row.status === 'approved' ? '已通过' : row.status === 'rejected' ? '已拒绝' : '待审核' }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="查看状态" width="100">
+          <template #default="{ row }">
+            <el-tag v-if="row.is_viewed" type="success" size="small">已查看</el-tag>
+            <el-tag v-else type="warning" size="small">未查看</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="采纳/追踪" width="140">
@@ -360,6 +374,7 @@ const filters = ref<ReviewFilters & { rating?: number }>({
   status: '',
   tracking_status: '',
   rating: undefined,
+  user_nickname: '',
 });
 
 const showAdoptedOnly = ref(false);
@@ -410,6 +425,7 @@ const resetFilter = () => {
     status: '',
     tracking_status: '',
     rating: undefined,
+    user_nickname: '',
   };
   showAdoptedOnly.value = false;
   currentPage.value = 1;
@@ -453,6 +469,9 @@ const fetchReviews = async () => {
     if (showAdoptedOnly.value) {
       params.is_adopted = true;
     }
+    if (filters.value.user_nickname) {
+      params.user_nickname = filters.value.user_nickname;
+    }
 
     const response = await adminReviewApi.getReviews(params);
 
@@ -466,7 +485,14 @@ const fetchReviews = async () => {
     }
   } catch (error: any) {
     console.error('获取评价列表失败:', error);
-    ElMessage.error(error.response?.data?.message || error.message || '获取评价列表失败');
+    
+    // 如果是超时错误，提供更友好的错误提示
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      ElMessage.error('请求超时，请检查网络连接或稍后重试');
+    } else {
+      ElMessage.error(error.response?.data?.message || error.message || '获取评价列表失败');
+    }
+    
     reviews.value = [];
     pagination.value = null;
   } finally {
@@ -612,6 +638,8 @@ const viewDetail = async (review: Review) => {
     const response = await adminReviewApi.getReview(review.id);
     if (response.code === 200 && response.data) {
       selectedReview.value = response.data;
+      // 查看详情时会自动标记为已查看（后端处理），刷新列表以更新查看状态和未查看数量
+      await fetchReviews();
     } else {
       ElMessage.error(response.message || '获取评价详情失败');
     }

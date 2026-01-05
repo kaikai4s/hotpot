@@ -96,6 +96,17 @@ class PointService
                 $this->expirationService->scheduleExpiration($transaction, $expireDays);
             }
 
+            // 检测成就完成（积分类成就）
+            try {
+                $achievementService = app(\App\Services\AchievementService::class);
+                $achievementService->checkAchievementCompletion($user, 'points', 0);
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::warning('积分成就完成检测失败', [
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
             return $transaction;
         });
     }
@@ -292,6 +303,45 @@ class PointService
                 'points_used' => $coupon->points_required,
                 'remaining_points' => $memberPoint->available_points,
             ];
+        });
+    }
+
+    /**
+     * 消耗积分（用于补签等场景）
+     */
+    public function spendPoints(User $user, int $points, string $sourceType, ?int $sourceId = null, ?string $description = null): PointTransaction
+    {
+        return DB::transaction(function () use ($user, $points, $sourceType, $sourceId, $description) {
+            $memberPoint = MemberPoint::lockForUpdate()->firstOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'total_points' => 0,
+                    'available_points' => 0,
+                    'frozen_points' => 0,
+                    'level' => 'bronze',
+                ]
+            );
+
+            if ($memberPoint->available_points < $points) {
+                throw new \Exception('积分不足', 400);
+            }
+
+            // 扣除积分
+            $memberPoint->available_points -= $points;
+            $memberPoint->save();
+
+            // 记录流水
+            $transaction = PointTransaction::create([
+                'user_id' => $user->id,
+                'type' => 'spend',
+                'points' => -$points,
+                'balance_after' => $memberPoint->available_points,
+                'source_type' => $sourceType,
+                'source_id' => $sourceId,
+                'description' => $description ?? "消耗{$points}积分",
+            ]);
+
+            return $transaction;
         });
     }
 

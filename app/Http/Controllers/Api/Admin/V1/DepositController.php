@@ -32,6 +32,7 @@ class DepositController extends Controller
         $request->validate([
             'deposit_status' => 'nullable|in:unpaid,paid,refunded,forfeited',
             'reservation_code' => 'nullable|string|max:64',
+            'user_nickname' => 'nullable|string|max:64',
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date',
             'page' => 'nullable|integer|min:1',
@@ -51,6 +52,13 @@ class DepositController extends Controller
                 $query->where('reservation_code', 'like', '%' . $request->input('reservation_code') . '%');
             }
 
+            // 用户昵称模糊筛选
+            if ($request->filled('user_nickname')) {
+                $query->whereHas('user', function ($q) use ($request) {
+                    $q->where('nickname', 'like', '%' . $request->input('user_nickname') . '%');
+                });
+            }
+
             if ($request->filled('date_from')) {
                 $query->where('created_at', '>=', $request->input('date_from') . ' 00:00:00');
             }
@@ -63,6 +71,12 @@ class DepositController extends Controller
             $pageSize = $request->input('page_size', 20);
             $reservations = $query->orderBy('created_at', 'desc')
                 ->paginate($pageSize, ['*'], 'page', $page);
+
+            // 统计未查看定金数量（只统计有定金的预约）
+            $unviewedCount = Reservation::whereNotNull('deposit_amount')
+                ->where('deposit_amount', '>', 0)
+                ->where('is_viewed', false)
+                ->count();
 
             return response()->json([
                 'code' => 200,
@@ -84,6 +98,7 @@ class DepositController extends Controller
                         'forfeited_amount' => (float) (Reservation::where('deposit_status', 'forfeited')
                             ->sum('deposit_amount') ?? 0),
                     ],
+                    'unviewed_count' => $unviewedCount,
                 ],
             ]);
         } catch (\Exception $e) {
@@ -133,6 +148,15 @@ class DepositController extends Controller
 
             $reservation->refresh();
             $reservation->load(['user', 'table', 'order']);
+
+            // 标记为已查看
+            if (!$reservation->is_viewed) {
+                $reservation->update([
+                    'is_viewed' => true,
+                    'viewed_at' => now(),
+                ]);
+                $reservation->refresh();
+            }
 
             return response()->json([
                 'code' => 200,

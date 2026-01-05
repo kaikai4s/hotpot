@@ -39,6 +39,8 @@ class Order extends Model
         'payment_data',
         'paid_at',
         'completed_at',
+        'is_viewed',
+        'viewed_at',
     ];
 
     protected $casts = [
@@ -53,6 +55,8 @@ class Order extends Model
         'payment_data' => 'array',
         'paid_at' => 'datetime',
         'completed_at' => 'datetime',
+        'is_viewed' => 'boolean',
+        'viewed_at' => 'datetime',
     ];
 
     public function user(): BelongsTo

@@ -13,6 +13,7 @@ export interface OrderItem {
 export interface CreateOrderPayload {
   items: OrderItem[];
   table_id?: number;
+  team_code?: string; // 团队码（用于加入团队点餐）
   reservation_id?: number;
   use_deposit?: boolean;
   use_points?: boolean;
@@ -40,7 +41,13 @@ export interface Order {
   updated_at: string;
   items?: OrderItemDetail[];
   user?: any;
-  table?: any;
+  table?: {
+    id: number;
+    name: string;
+    capacity: number;
+    type: string;
+    team_code?: string | null; // 团队码
+  } | null;
   reservation?: any;
 }
 

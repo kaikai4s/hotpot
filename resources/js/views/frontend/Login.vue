@@ -17,6 +17,23 @@
                 <span class="text-5xl text-white">💬</span>
               </div>
               <p class="text-gray-600 mb-4">使用微信登录</p>
+              
+              <!-- 邀请码输入（可选） -->
+              <div class="mb-4 text-left">
+                <el-input
+                  v-model="inviteCode"
+                  placeholder="请输入邀请码（可选，有邀请码可获得新人礼包）"
+                  size="large"
+                  clearable
+                  class="mb-2"
+                >
+                  <template #prefix>
+                    <span class="text-lg">🎁</span>
+                  </template>
+                </el-input>
+                <p class="text-xs text-gray-500">💡 提示：输入好友的邀请码，注册后双方都有好礼</p>
+              </div>
+              
               <el-button 
                 type="primary" 
                 size="large" 
@@ -105,6 +122,7 @@ const phoneForm = ref({
   phone: '',
   code: '',
 });
+const inviteCode = ref('');
 
 const phoneFormRules: FormRules = {
   phone: [
@@ -154,7 +172,7 @@ const handleWechatLogin = async () => {
       const mockCode = 'mock_wechat_code_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
       
       // 调用登录接口（后端会识别模拟code并创建模拟用户）
-      const response = await userAuthApi.wechatLogin(mockCode);
+      const response = await userAuthApi.wechatLogin(mockCode, inviteCode.value || undefined);
       
       if (response && response.code === 200 && response.data && response.data.token) {
         // 保存Token和用户信息
@@ -211,7 +229,10 @@ onMounted(async () => {
   if (code && state === 'wechat_login') {
     wechatLoading.value = true;
     try {
-      const response = await userAuthApi.wechatLogin(code);
+      // 从URL参数中获取邀请码（如果有）
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlInviteCode = urlParams.get('invite_code') || inviteCode.value;
+      const response = await userAuthApi.wechatLogin(code, urlInviteCode || undefined);
       
       if (response && response.code === 200 && response.data && response.data.token) {
         // 保存Token和用户信息

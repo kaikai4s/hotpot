@@ -10,6 +10,7 @@ export interface OrderFilters {
   payment_method?: 'wechat' | 'mock';
   order_no?: string;
   user_id?: number;
+  user_nickname?: string; // 用户昵称模糊搜索
   date_from?: string;
   date_to?: string;
   page?: number;
@@ -28,6 +29,8 @@ export interface Order {
   payment_data?: any;
   paid_at?: string;
   completed_at?: string;
+  is_viewed?: boolean;
+  viewed_at?: string | null;
   created_at: string;
   updated_at: string;
   user?: {

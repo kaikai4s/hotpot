@@ -29,6 +29,7 @@ class OrderController extends Controller
             'payment_method' => 'nullable|in:wechat,mock',
             'order_no' => 'nullable|string|max:32',
             'user_id' => 'nullable|integer',
+            'user_nickname' => 'nullable|string|max:64',
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date',
             'page' => 'nullable|integer|min:1',
@@ -57,6 +58,13 @@ class OrderController extends Controller
             $query->where('user_id', $request->input('user_id'));
         }
 
+        // 用户昵称模糊筛选
+        if ($request->filled('user_nickname')) {
+            $query->whereHas('user', function ($q) use ($request) {
+                $q->where('nickname', 'like', '%' . $request->input('user_nickname') . '%');
+            });
+        }
+
         // 日期范围筛选
         if ($request->has('date_from') && $request->input('date_from')) {
             $query->where('created_at', '>=', $request->input('date_from') . ' 00:00:00');
@@ -69,6 +77,9 @@ class OrderController extends Controller
         $pageSize = $request->input('page_size', 20);
         $orders = $query->orderBy('created_at', 'desc')->paginate($pageSize, ['*'], 'page', $page);
 
+        // 统计未查看订单数量
+        $unviewedCount = Order::where('is_viewed', false)->count();
+
         return response()->json([
             'code' => 200,
             'data' => [
@@ -79,6 +90,7 @@ class OrderController extends Controller
                     'total_count' => $orders->total(),
                     'page_size' => $orders->perPage(),
                 ],
+                'unviewed_count' => $unviewedCount,
             ],
         ]);
     }
@@ -96,6 +108,14 @@ class OrderController extends Controller
                 'code' => 404,
                 'message' => '订单不存在',
             ], 404);
+        }
+
+        // 标记为已查看
+        if (!$order->is_viewed) {
+            $order->update([
+                'is_viewed' => true,
+                'viewed_at' => now(),
+            ]);
         }
 
         return response()->json([

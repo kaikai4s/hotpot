@@ -71,6 +71,20 @@
       <el-collapse-transition>
         <div v-show="showAdvancedFilter" class="mb-6 p-4 bg-gray-50 rounded-lg">
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <el-input-number
+              v-model="filterUserId"
+              placeholder="用户ID（精确匹配）"
+              :min="1"
+              :precision="0"
+              clearable
+              class="w-full"
+            />
+            <el-input
+              v-model="filterNickname"
+              placeholder="用户昵称（精确匹配）"
+              clearable
+              class="w-full"
+            />
             <el-date-picker
               v-model="filterDateRange"
               type="daterange"
@@ -293,7 +307,7 @@
     <el-dialog
       v-model="detailDialogVisible"
       title="用户详情"
-      width="900px"
+      width="1200px"
       @close="resetDetail"
     >
       <div v-if="userDetail" v-loading="detailLoading">
@@ -337,10 +351,40 @@
                 <el-tag v-else type="danger">禁用</el-tag>
               </div>
             </div>
+            <div v-if="userDetail.invite_code">
+              <div class="text-gray-500 mb-1">邀请码</div>
+              <div class="font-mono font-medium text-purple-600">{{ userDetail.invite_code }}</div>
+            </div>
           </div>
           <div v-if="userDetail.remark" class="mt-4">
             <div class="text-gray-500 mb-1">备注</div>
             <div class="text-sm">{{ userDetail.remark }}</div>
+          </div>
+        </el-card>
+
+        <!-- 段位信息 -->
+        <el-card v-if="userDetail.level_info" class="mb-4">
+          <template #header>
+            <span class="font-bold">段位信息</span>
+          </template>
+          <div class="flex items-center gap-6">
+            <div class="flex-1">
+              <div class="text-lg font-semibold text-gray-700 mb-2">
+                <el-tag type="success" size="large">{{ userDetail.level_info.name }}</el-tag>
+                <span v-if="userDetail.equipped_title" class="ml-2">
+                  <el-tag type="warning" size="large">称号：{{ userDetail.equipped_title }}</el-tag>
+                </span>
+              </div>
+              <div class="text-sm text-gray-600 space-y-1">
+                <div>当前积分：<span class="font-medium">{{ userDetail.statistics.total_points }}</span> / 最低要求：<span class="font-medium">{{ userDetail.level_info.min_points || 0 }}</span></div>
+                <div v-if="userDetail.level_info.description" class="mt-2">{{ userDetail.level_info.description }}</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-sm text-gray-500">可用积分</div>
+              <div class="text-2xl font-bold text-blue-600">{{ userDetail.statistics.available_points }}</div>
+              <div class="text-sm text-gray-500 mt-1">冻结积分：{{ userDetail.statistics.frozen_points }}</div>
+            </div>
           </div>
         </el-card>
 
@@ -374,21 +418,163 @@
               <div class="text-2xl font-bold text-yellow-600">{{ userDetail.statistics.reservations_count }}</div>
               <div class="text-sm text-gray-600 mt-1">预约数</div>
             </div>
+            <div v-if="userDetail.statistics.invitations_count !== undefined" class="text-center p-4 bg-indigo-50 rounded-lg">
+              <div class="text-2xl font-bold text-indigo-600">{{ userDetail.statistics.invitations_count }}</div>
+              <div class="text-sm text-gray-600 mt-1">邀请好友</div>
+            </div>
+            <div v-if="userDetail.statistics.achievements_count !== undefined" class="text-center p-4 bg-teal-50 rounded-lg">
+              <div class="text-2xl font-bold text-teal-600">{{ userDetail.statistics.achievements_count }}</div>
+              <div class="text-sm text-gray-600 mt-1">已完成成就</div>
+            </div>
           </div>
         </el-card>
 
-        <!-- 最近订单 -->
-        <el-card v-if="userDetail.orders && userDetail.orders.length > 0">
+        <!-- 邀请信息 -->
+        <el-card v-if="userDetail.invite_code || userDetail.inviter || (userDetail.invitees && userDetail.invitees.length > 0)" class="mb-4">
           <template #header>
-            <span class="font-bold">最近订单</span>
+            <span class="font-bold">邀请信息</span>
           </template>
-          <el-table :data="userDetail.orders" size="small">
-            <el-table-column prop="order_no" label="订单号" />
-            <el-table-column prop="total_amount" label="金额">
+          <div class="space-y-4">
+            <div v-if="userDetail.invite_code" class="p-3 bg-gray-50 rounded-lg">
+              <div class="text-sm text-gray-600 mb-1">我的邀请码</div>
+              <div class="text-lg font-mono font-bold text-purple-600">{{ userDetail.invite_code }}</div>
+            </div>
+            <div v-if="userDetail.inviter" class="p-3 bg-blue-50 rounded-lg">
+              <div class="text-sm text-gray-600 mb-1">邀请人</div>
+              <div class="flex items-center gap-2">
+                <el-avatar v-if="userDetail.inviter.avatar_url" :src="userDetail.inviter.avatar_url" :size="32" />
+                <span class="font-medium">{{ userDetail.inviter.nickname || '未设置' }}</span>
+                <span class="text-xs text-gray-500">(ID: {{ userDetail.inviter.id }})</span>
+              </div>
+            </div>
+            <div v-if="userDetail.invitees && userDetail.invitees.length > 0" class="mt-4">
+              <div class="text-sm text-gray-600 mb-2">我邀请的好友 ({{ userDetail.invitees.length }}人)</div>
+              <el-table :data="userDetail.invitees.slice(0, 10)" size="small" max-height="200">
+                <el-table-column prop="id" label="ID" width="80" />
+                <el-table-column label="用户信息" min-width="150">
+                  <template #default="{ row }">
+                    <div class="flex items-center gap-2">
+                      <el-avatar v-if="row.avatar_url" :src="row.avatar_url" :size="24" />
+                      <span>{{ row.nickname || '未设置' }}</span>
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="段位" width="100">
+                  <template #default="{ row }">
+                    <el-tag v-if="row.member_points?.level || row.memberPoints?.level" size="small" type="success">
+                      {{ getLevelName(row.member_points?.level || row.memberPoints?.level) }}
+                    </el-tag>
+                    <span v-else class="text-gray-400">-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="created_at" label="注册时间" width="150">
+                  <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 成就信息 -->
+        <el-card v-if="userDetail.all_achievements && userDetail.all_achievements.length > 0" class="mb-4">
+          <template #header>
+            <div class="flex items-center justify-between">
+              <span class="font-bold">成就信息</span>
+              <span class="text-sm text-gray-500">
+                已完成 {{ userDetail.statistics?.achievements_count || 0 }} / {{ userDetail.statistics?.total_achievements_count || 0 }}
+              </span>
+            </div>
+          </template>
+          <el-tabs>
+            <el-tab-pane label="已完成成就">
+              <div class="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                <div
+                  v-for="achievement in userDetail.all_achievements.filter(a => a.is_completed)"
+                  :key="achievement.id"
+                  class="p-3 border rounded-lg hover:bg-gray-50"
+                >
+                  <div class="flex items-start gap-2">
+                    <span class="text-2xl">{{ achievement.achievement_template?.icon || '🏆' }}</span>
+                    <div class="flex-1">
+                      <div class="font-semibold text-sm">{{ achievement.achievement_template?.name }}</div>
+                      <div class="text-xs text-gray-500 mt-1">{{ achievement.achievement_template?.description }}</div>
+                      <div class="text-xs text-green-600 mt-1">完成时间：{{ formatDate(achievement.completed_at) }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </el-tab-pane>
+            <el-tab-pane label="进行中成就">
+              <div class="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                <div
+                  v-for="achievement in userDetail.all_achievements.filter(a => !a.is_completed)"
+                  :key="achievement.id"
+                  class="p-3 border rounded-lg hover:bg-gray-50"
+                >
+                  <div class="flex items-start gap-2">
+                    <span class="text-2xl opacity-50">{{ achievement.achievement_template?.icon || '🏆' }}</span>
+                    <div class="flex-1">
+                      <div class="font-semibold text-sm">{{ achievement.achievement_template?.name }}</div>
+                      <div class="text-xs text-gray-500 mt-1">{{ achievement.achievement_template?.description }}</div>
+                      <div class="mt-2">
+                        <el-progress
+                          :percentage="achievement.target_progress > 0 ? Math.min(100, Math.round((achievement.current_progress / achievement.target_progress) * 100)) : 0"
+                          :stroke-width="6"
+                          :show-text="true"
+                        />
+                        <div class="text-xs text-gray-500 mt-1">
+                          进度：{{ achievement.current_progress || 0 }} / {{ achievement.target_progress || 0 }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </el-tab-pane>
+          </el-tabs>
+        </el-card>
+
+        <!-- 所有订单 -->
+        <el-card v-if="userDetail.all_orders && userDetail.all_orders.length > 0" class="mb-4">
+          <template #header>
+            <div class="flex items-center justify-between">
+              <span class="font-bold">所有订单 ({{ userDetail.all_orders.length }})</span>
+              <el-button type="primary" link @click="handleViewOrders(userDetail)">查看全部订单</el-button>
+            </div>
+          </template>
+          <el-table :data="userDetail.all_orders" size="small" max-height="400">
+            <el-table-column prop="order_no" label="订单号" width="180" />
+            <el-table-column label="订单内容" min-width="200">
+              <template #default="{ row }">
+                <div v-if="row.items && row.items.length > 0" class="text-xs">
+                  <div v-for="(item, idx) in row.items.slice(0, 2)" :key="idx">
+                    {{ item.dish?.name || item.combo?.name }} × {{ item.quantity }}
+                  </div>
+                  <div v-if="row.items.length > 2" class="text-gray-400">... 还有 {{ row.items.length - 2 }} 项</div>
+                </div>
+                <span v-else class="text-gray-400">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="桌位" width="100">
+              <template #default="{ row }">
+                <span v-if="row.table">{{ row.table.name }}</span>
+                <span v-else class="text-gray-400">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="total_amount" label="金额" width="100">
               <template #default="{ row }">¥{{ row.total_amount?.toFixed(2) }}</template>
             </el-table-column>
-            <el-table-column prop="status" label="状态" />
-            <el-table-column prop="created_at" label="时间">
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag
+                  :type="getOrderStatusType(row.status)"
+                  size="small"
+                >
+                  {{ getOrderStatusText(row.status) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="created_at" label="时间" width="150">
               <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
             </el-table-column>
           </el-table>
@@ -438,6 +624,8 @@ const statistics = ref<UserStatistics>({
 // 排序和筛选
 const sortBy = ref('created_at');
 const sortOrder = ref<'asc' | 'desc'>('desc');
+const filterUserId = ref<number | null>(null);
+const filterNickname = ref<string>('');
 const filterDateRange = ref<[string, string] | null>(null);
 const filterGender = ref<number | ''>('');
 const filterHasPhone = ref<'0' | '1' | ''>('');
@@ -520,6 +708,14 @@ const fetchData = async () => {
     };
 
     // 高级筛选
+    // 用户ID和昵称精确筛选（优先级最高）
+    if (filterUserId.value !== null && filterUserId.value > 0) {
+      params.user_id = filterUserId.value;
+    }
+    if (filterNickname.value && filterNickname.value.trim()) {
+      params.nickname = filterNickname.value.trim();
+    }
+    
     if (filterDateRange.value) {
       params.created_from = filterDateRange.value[0];
       params.created_to = filterDateRange.value[1];
@@ -530,16 +726,16 @@ const fetchData = async () => {
     if (filterHasPhone.value !== '') {
       params.has_phone = filterHasPhone.value;
     }
-    if (filterMinPoints !== null) {
+    if (filterMinPoints.value !== null) {
       params.min_points = filterMinPoints.value;
     }
-    if (filterMaxPoints !== null) {
+    if (filterMaxPoints.value !== null) {
       params.max_points = filterMaxPoints.value;
     }
-    if (filterMinOrders !== null) {
+    if (filterMinOrders.value !== null) {
       params.min_orders = filterMinOrders.value;
     }
-    if (filterMaxOrders !== null) {
+    if (filterMaxOrders.value !== null) {
       params.max_orders = filterMaxOrders.value;
     }
 
@@ -574,6 +770,8 @@ const resetSearch = () => {
 };
 
 const resetAdvancedFilter = () => {
+  filterUserId.value = null;
+  filterNickname.value = '';
   filterDateRange.value = null;
   filterGender.value = '';
   filterHasPhone.value = '';
@@ -603,7 +801,11 @@ const handleViewDetail = async (user: User) => {
   try {
     const response = await userApi.getDetail(user.id);
     if (response.code === 200 && response.data) {
-      userDetail.value = response.data.user as UserDetail;
+      userDetail.value = {
+        ...response.data.user,
+        all_orders: response.data.all_orders || [],
+        all_achievements: response.data.all_achievements || [],
+      } as UserDetail;
     }
   } catch (error: any) {
     console.error('获取用户详情失败:', error);
@@ -742,6 +944,28 @@ const resetDetail = () => {
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '-';
   return new Date(dateStr).toLocaleString('zh-CN');
+};
+
+const getOrderStatusText = (status: string) => {
+  const statusMap: Record<string, string> = {
+    pending: '待支付',
+    paid: '已支付',
+    completed: '已完成',
+    cancelled: '已取消',
+    pending_review: '待评价',
+  };
+  return statusMap[status] || status;
+};
+
+const getOrderStatusType = (status: string) => {
+  const typeMap: Record<string, string> = {
+    pending: 'warning',
+    paid: 'info',
+    completed: 'success',
+    cancelled: 'danger',
+    pending_review: 'primary',
+  };
+  return typeMap[status] || 'info';
 };
 
 onMounted(() => {

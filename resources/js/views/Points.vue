@@ -17,6 +17,15 @@
         </el-button>
       </div>
 
+      <!-- 用户筛选提示 -->
+      <div v-if="selectedUserId" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <el-icon class="text-blue-600"><InfoFilled /></el-icon>
+          <span class="text-blue-800 font-medium">当前筛选：用户ID {{ selectedUserId }}</span>
+        </div>
+        <el-button type="primary" link @click="clearUserFilter">清除用户筛选</el-button>
+      </div>
+
       <!-- 搜索栏 -->
       <div class="flex gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
         <el-input
@@ -222,10 +231,15 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Refresh, Search } from '@element-plus/icons-vue';
+import { Refresh, Search, InfoFilled } from '@element-plus/icons-vue';
 import { adminPointsApi, type MemberPoint, type PointTransaction } from '../api/points';
 import { adminPointLevelApi, type PointLevel } from '../api/admin/point-level';
+
+const router = useRouter();
+
+const route = useRoute();
 
 const loading = ref(false);
 const adjusting = ref(false);
@@ -234,6 +248,7 @@ const transactions = ref<PointTransaction[]>([]);
 const availableLevels = ref<PointLevel[]>([]);
 const searchKeyword = ref('');
 const selectedLevel = ref('');
+const selectedUserId = ref<number | string | null>(null);
 const currentPage = ref(1);
 const pageSize = ref(15);
 const total = ref(0);
@@ -305,14 +320,21 @@ const formatDate = (date: string) => {
 const fetchData = async () => {
   loading.value = true;
   try {
-    const response = await adminPointsApi.getList({
+    const params: any = {
       search: searchKeyword.value || undefined,
       level: selectedLevel.value || undefined,
       sort_by: 'total_points',
       sort_order: 'desc',
       per_page: pageSize.value,
       page: currentPage.value,
-    });
+    };
+    
+    // 如果指定了用户ID，添加筛选条件
+    if (selectedUserId.value) {
+      params.user_id = selectedUserId.value;
+    }
+    
+    const response = await adminPointsApi.getList(params);
 
     if (response.code === 200 && response.data) {
       points.value = response.data.points;
@@ -331,9 +353,20 @@ const handleSearch = () => {
   fetchData();
 };
 
+const clearUserFilter = () => {
+  selectedUserId.value = null;
+  currentPage.value = 1;
+  // 清除 URL 中的 user_id 参数
+  router.replace({ query: { ...route.query, user_id: undefined } });
+  fetchData();
+};
+
 const resetSearch = () => {
   searchKeyword.value = '';
   selectedLevel.value = '';
+  selectedUserId.value = null;
+  // 清除 URL 中的所有查询参数
+  router.replace({ path: route.path });
   handleSearch();
 };
 
@@ -425,6 +458,11 @@ const fetchLevels = async () => {
 };
 
 onMounted(() => {
+  // 从 URL 参数中读取 user_id
+  const userId = route.query.user_id;
+  if (userId) {
+    selectedUserId.value = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+  }
   fetchLevels();
   fetchData();
 });

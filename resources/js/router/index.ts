@@ -27,6 +27,7 @@ const Orders = () => import('../views/Orders.vue');
 const Deposits = () => import('../views/Deposits.vue');
 const AuditLogs = () => import('../views/AuditLogs.vue');
 const Lottery = () => import('../views/Lottery.vue');
+const Achievements = () => import('../views/Achievements.vue');
 
 // 前台页面
 const FrontendHome = () => import('../views/frontend/Home.vue');
@@ -173,6 +174,12 @@ const routes = [
     component: Settings,
     meta: { requiresAuth: true },
   },
+  {
+    path: '/admin/achievements',
+    name: 'Achievements',
+    component: Achievements,
+    meta: { requiresAuth: true },
+  },
   // 兼容旧路由，重定向到新路径
   {
     path: '/login',
@@ -308,6 +315,30 @@ const routes = [
     path: '/frontend/dishes/:dishId/reviews',
     name: 'FrontendDishReviews',
     component: () => import('../views/frontend/DishReviews.vue'),
+  },
+  {
+    path: '/frontend/invitation',
+    name: 'FrontendInvitation',
+    component: () => import('../views/frontend/Invitation.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/frontend/tasks',
+    name: 'FrontendTasks',
+    component: () => import('../views/frontend/Tasks.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/frontend/checkin',
+    name: 'FrontendCheckin',
+    component: () => import('../views/frontend/Checkin.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/frontend/achievements',
+    name: 'FrontendAchievements',
+    component: () => import('../views/frontend/Achievements.vue'),
+    meta: { requiresAuth: true },
   },
 ];
 

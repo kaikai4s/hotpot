@@ -10,7 +10,11 @@
               <span v-else class="text-4xl text-white font-bold">{{ userInfo?.nickname?.charAt(0) || 'U' }}</span>
             </div>
             <div class="flex-1">
-              <h2 class="text-3xl font-bold text-gray-900 mb-2">{{ userInfo?.nickname || '用户' }}</h2>
+              <h2 class="text-3xl font-bold text-gray-900 mb-2">
+                <span v-if="userInfo?.equipped_title" class="text-yellow-600 font-bold mr-2">[{{ userInfo.equipped_title }}]</span>
+                {{ userInfo?.nickname || '用户' }}
+                <span v-if="userInfo?.level" class="text-purple-600 ml-2 text-2xl">[{{ userInfo.level.name }}]</span>
+              </h2>
               <p v-if="userInfo?.phone" class="text-gray-600">手机号：{{ userInfo.phone }}</p>
               <p v-else class="text-gray-500">未绑定手机号</p>
             </div>
@@ -27,18 +31,27 @@
             <div class="bg-white rounded-xl shadow-md p-6">
               <h3 class="text-xl font-bold text-gray-900 mb-4">我的</h3>
               <div class="space-y-2">
-                <button
-                  v-for="menu in menus"
-                  :key="menu.key"
-                  @click="handleTabChange(menu.key)"
-                  class="w-full text-left px-4 py-3 rounded-lg transition-all"
-                  :class="activeTab === menu.key
-                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
-                    : 'text-gray-700 hover:bg-gray-100'"
-                >
-                  <span class="mr-2">{{ menu.icon }}</span>
-                  {{ menu.label }}
-                </button>
+                <template v-for="menu in menus" :key="menu.key">
+                  <router-link
+                    v-if="menu.route"
+                    :to="menu.route"
+                    class="w-full text-left px-4 py-3 rounded-lg transition-all block text-gray-700 hover:bg-gray-100"
+                  >
+                    <span class="mr-2">{{ menu.icon }}</span>
+                    {{ menu.label }}
+                  </router-link>
+                  <button
+                    v-else
+                    @click="handleTabChange(menu.key)"
+                    class="w-full text-left px-4 py-3 rounded-lg transition-all"
+                    :class="activeTab === menu.key
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
+                      : 'text-gray-700 hover:bg-gray-100'"
+                  >
+                    <span class="mr-2">{{ menu.icon }}</span>
+                    {{ menu.label }}
+                  </button>
+                </template>
               </div>
             </div>
           </div>
@@ -405,6 +418,10 @@ const menus = [
   { key: 'coupons', label: '我的优惠券', icon: '🎫' },
   { key: 'points', label: '我的积分', icon: '⭐' },
   { key: 'reviews', label: '我的评价', icon: '💬' },
+  { key: 'invitation', label: '邀请好友', icon: '🎁', route: '/frontend/invitation' },
+  { key: 'tasks', label: '我的任务', icon: '📋', route: '/frontend/tasks' },
+  { key: 'checkin', label: '每日签到', icon: '📅', route: '/frontend/checkin' },
+  { key: 'achievements', label: '我的成就', icon: '🏆', route: '/frontend/achievements' },
 ];
 
 const loading = ref(false);

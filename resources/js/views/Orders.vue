@@ -17,6 +17,15 @@
         </el-button>
       </div>
 
+      <!-- 用户筛选提示 -->
+      <div v-if="filters.user_id" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <el-icon class="text-blue-600"><InfoFilled /></el-icon>
+          <span class="text-blue-800 font-medium">当前筛选：用户ID {{ filters.user_id }}</span>
+        </div>
+        <el-button type="primary" link @click="clearUserFilter">清除用户筛选</el-button>
+      </div>
+
       <!-- 筛选栏 -->
       <div class="flex gap-4 mb-6 p-4 bg-gray-50 rounded-lg flex-wrap">
         <el-select 
@@ -45,6 +54,14 @@
         <el-input
           v-model="filters.order_no"
           placeholder="订单号"
+          class="w-48"
+          clearable
+          @clear="handleFilter"
+          @keyup.enter="handleFilter"
+        />
+        <el-input
+          v-model="filters.user_nickname"
+          placeholder="用户昵称"
           class="w-48"
           clearable
           @clear="handleFilter"
@@ -113,6 +130,12 @@
             <el-tag :type="getStatusType(row.status)" effect="dark">
               {{ getStatusText(row.status) }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="查看状态" width="100">
+          <template #default="{ row }">
+            <el-tag v-if="row.is_viewed" type="success" size="small">已查看</el-tag>
+            <el-tag v-else type="warning" size="small">未查看</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="paid_at" label="支付时间" width="180">
@@ -228,9 +251,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Refresh, View } from '@element-plus/icons-vue';
+import { Refresh, View, InfoFilled } from '@element-plus/icons-vue';
 import { adminOrderApi, type Order } from '../api/admin/order';
+
+const router = useRouter();
+
+const route = useRoute();
 
 const loading = ref(false);
 const orders = ref<Order[]>([]);
@@ -247,6 +275,8 @@ const filters = ref({
   order_no: '',
   date_from: '',
   date_to: '',
+  user_id: '',
+  user_nickname: '',
 });
 
 const dateRange = ref<[string, string] | null>(null);
@@ -303,6 +333,14 @@ const handleFilter = () => {
   fetchData();
 };
 
+const clearUserFilter = () => {
+  filters.value.user_id = '';
+  currentPage.value = 1;
+  // 清除 URL 中的 user_id 参数
+  router.replace({ query: { ...route.query, user_id: undefined } });
+  fetchData();
+};
+
 const resetFilter = () => {
   filters.value = {
     status: '',
@@ -310,9 +348,12 @@ const resetFilter = () => {
     order_no: '',
     date_from: '',
     date_to: '',
+    user_id: '',
   };
   dateRange.value = null;
   currentPage.value = 1;
+  // 清除 URL 中的所有查询参数
+  router.replace({ path: route.path });
   fetchData();
 };
 
@@ -360,6 +401,9 @@ const fetchData = async () => {
     if (filters.value.user_id) {
       params.user_id = filters.value.user_id;
     }
+    if (filters.value.user_nickname) {
+      params.user_nickname = filters.value.user_nickname;
+    }
 
     const response = await adminOrderApi.getOrders(params);
 
@@ -388,6 +432,8 @@ const viewDetail = async (order: Order) => {
     if (response.code === 200 && response.data) {
       selectedOrder.value = response.data;
       showDetailDialog.value = true;
+      // 查看详情时会自动标记为已查看（后端处理），刷新列表以更新查看状态和未查看数量
+      await fetchData();
     } else {
       ElMessage.error(response.message || '获取订单详情失败');
     }
@@ -444,6 +490,11 @@ const cancelOrder = async (id: number) => {
 };
 
 onMounted(() => {
+  // 从 URL 参数中读取 user_id
+  const userId = route.query.user_id;
+  if (userId) {
+    filters.value.user_id = String(userId);
+  }
   fetchData();
 });
 </script>

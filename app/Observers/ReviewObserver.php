@@ -11,12 +11,14 @@ namespace App\Observers;
 
 use App\Models\Review;
 use App\Services\PointService;
+use App\Services\TaskService;
 use Illuminate\Support\Facades\Log;
 
 class ReviewObserver
 {
     public function __construct(
-        private PointService $pointService
+        private PointService $pointService,
+        private TaskService $taskService
     ) {
     }
 
@@ -85,10 +87,33 @@ class ReviewObserver
                     ]);
                 }
             } catch (\Exception $e) {
-                Log::error('评价采纳积分奖励失败', [
+                    Log::error('评价采纳积分奖励失败', [
                     'review_id' => $review->id,
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        }
+
+        // 检测任务完成（评价相关任务）
+        if ($review->status === 'approved') {
+            try {
+                $this->taskService->checkTaskCompletion($review->user, 'review', 1);
+            } catch (\Exception $e) {
+                Log::error('评价任务完成检测失败', [
+                    'review_id' => $review->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            // 检测成就完成（评价类成就）
+            try {
+                $achievementService = app(\App\Services\AchievementService::class);
+                $achievementService->checkAchievementCompletion($review->user, 'review', 1);
+            } catch (\Exception $e) {
+                Log::error('评价成就完成检测失败', [
+                    'review_id' => $review->id,
+                    'error' => $e->getMessage(),
                 ]);
             }
         }

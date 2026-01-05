@@ -38,6 +38,11 @@ export interface Review {
   user?: {
     id: number;
     nickname: string;
+    equipped_title?: string | null;
+    level?: {
+      code: string;
+      name: string;
+    } | null;
   };
   dish?: {
     id: number;
@@ -73,6 +78,7 @@ export interface ReviewFilters {
   tracking_status?: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   is_adopted?: boolean;
   my_reviews?: boolean; // 是否只获取当前用户的评价
+  user_nickname?: string; // 用户昵称模糊搜索
   page?: number;
   page_size?: number;
 }

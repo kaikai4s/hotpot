@@ -21,7 +21,9 @@ class TableController extends Controller
      */
     public function index(): JsonResponse
     {
-        $tables = Table::orderBy('name')->get();
+        $tables = Table::with('occupiedByUser:id,nickname,phone,avatar_url')
+            ->orderBy('name')
+            ->get();
 
         return response()->json([
             'code' => 200,
@@ -44,6 +46,7 @@ class TableController extends Controller
             'capacity' => 'sometimes|integer|min:1|max:20',
             'type' => 'sometimes|in:window,corner,center',
             'status' => 'sometimes|in:available,reserved,occupied,maintenance',
+            'occupied_by_user_id' => 'nullable|integer|exists:users,id',
             'position_x' => 'nullable|integer|min:0',
             'position_y' => 'nullable|integer|min:0',
             'default_position_x' => 'nullable|integer|min:0',
@@ -55,6 +58,7 @@ class TableController extends Controller
             'capacity',
             'type',
             'status',
+            'occupied_by_user_id',
             'position_x',
             'position_y',
             'default_position_x',
@@ -67,9 +71,15 @@ class TableController extends Controller
             if ($newStatus === 'occupied' && $table->status !== 'occupied') {
                 // 状态变为使用中，记录开始时间
                 $updateData['occupied_at'] = now();
+                // 如果没有指定使用人，保持原有使用人（如果有）或设为null
+                if (!$request->has('occupied_by_user_id')) {
+                    // 保持原有使用人，不做修改
+                    unset($updateData['occupied_by_user_id']);
+                }
             } elseif ($newStatus !== 'occupied' && $table->status === 'occupied') {
-                // 状态从使用中变为其他状态，清除使用时间
+                // 状态从使用中变为其他状态，清除使用时间和使用人
                 $updateData['occupied_at'] = null;
+                $updateData['occupied_by_user_id'] = null;
             }
         }
 
@@ -114,7 +124,8 @@ class TableController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $table = Table::findOrFail($id);
+        $table = Table::with('occupiedByUser:id,nickname,phone,avatar_url')
+            ->findOrFail($id);
 
         return response()->json([
             'code' => 200,

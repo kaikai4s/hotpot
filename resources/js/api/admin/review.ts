@@ -14,6 +14,7 @@ export interface AdminReviewListResponse {
     total_count: number;
     page_size: number;
   };
+  unviewed_count?: number;
 }
 
 export const adminReviewApi = {

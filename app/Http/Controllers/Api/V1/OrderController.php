@@ -46,6 +46,7 @@ class OrderController extends Controller
             'items.*.combo_id' => 'required_if:items.*.type,combo|integer|exists:combos,id',
             'items.*.quantity' => 'required|integer|min:1',
             'table_id' => 'nullable|integer|exists:tables,id',
+            'team_code' => 'nullable|string|size:10', // 团队码（用于加入团队点餐）
             'reservation_id' => 'nullable|integer|exists:reservations,id',
             'use_deposit' => 'nullable|boolean',
             'use_points' => 'nullable|boolean',
@@ -278,6 +279,77 @@ class OrderController extends Controller
 
             // 计算最终支付金额（段位折扣在优惠券之后应用）
             $finalAmount = max(0, $totalAmount - $depositDiscount - $pointsDiscount - $couponDiscount - $levelDiscount);
+
+            // 如果指定了桌位，检查并锁定桌位
+            if ($tableId) {
+                $table = \App\Models\Table::find($tableId);
+                if (!$table) {
+                    DB::rollBack();
+                    return response()->json([
+                        'code' => 404,
+                        'message' => '桌位不存在',
+                    ], 404);
+                }
+
+                // 检查桌位是否可用
+                // 1. available 或 reserved 状态可以锁定
+                // 2. occupied 状态但使用人是当前用户，可以继续使用（加菜），不重置时间
+                // 3. occupied 状态且有 team_code，可以通过团队码加入
+                $canUse = false;
+                $isFirstOrder = false;
+                
+                if (in_array($table->status, ['available', 'reserved'])) {
+                    // 首次使用桌位
+                    $canUse = true;
+                    $isFirstOrder = true;
+                } elseif ($table->status === 'occupied') {
+                    // 已占用的桌位
+                    if ($table->occupied_by_user_id === $user->id) {
+                        // 使用人是当前用户，可以继续使用（加菜）
+                        $canUse = true;
+                        $isFirstOrder = false;
+                    } elseif ($table->team_code) {
+                        // 有团队码，需要验证团队码
+                        $providedTeamCode = $request->input('team_code');
+                        if ($providedTeamCode && strtoupper($providedTeamCode) === strtoupper($table->team_code)) {
+                            // 团队码匹配，允许加入团队点餐
+                            $canUse = true;
+                            $isFirstOrder = false;
+                        } else {
+                            // 团队码不匹配或未提供
+                            DB::rollBack();
+                            return response()->json([
+                                'code' => 400,
+                                'message' => "该桌位正在团队点餐中，请输入正确的团队码：{$table->team_code}",
+                            ], 400);
+                        }
+                    }
+                }
+                
+                if (!$canUse) {
+                    DB::rollBack();
+                    return response()->json([
+                        'code' => 400,
+                        'message' => "桌位 {$table->name} 当前不可用（状态：{$table->status}）",
+                    ], 400);
+                }
+
+                // 更新桌位状态
+                if ($isFirstOrder) {
+                    // 首次使用：设置为 occupied，记录使用人和时间，生成团队码
+                    $teamCode = 'TEAM' . strtoupper(Str::random(6));
+                    $table->update([
+                        'status' => 'occupied',
+                        'occupied_at' => now(),
+                        'occupied_by_user_id' => $user->id,
+                        'team_code' => $teamCode,
+                    ]);
+                } else {
+                    // 加菜：不重置时间，保持原有使用人和团队码
+                    // 如果当前用户不是使用人，但通过团队码加入，不更新使用人
+                    // 保持原有状态不变
+                }
+            }
 
             // 生成订单号
             $orderNo = 'ORD' . date('YmdHis') . str_pad((string) mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);

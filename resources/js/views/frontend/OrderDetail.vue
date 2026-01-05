@@ -45,6 +45,13 @@
                 <span class="text-gray-600">桌位：</span>
                 <el-tag type="info">{{ order.table.name }}</el-tag>
               </div>
+              <div v-if="order.table?.team_code" class="flex justify-between">
+                <span class="text-gray-600">团队码：</span>
+                <el-tag type="success" size="default">
+                  <el-icon class="mr-1"><UserFilled /></el-icon>
+                  {{ order.table.team_code }}
+                </el-tag>
+              </div>
               <div class="flex justify-between">
                 <span class="text-gray-600">创建时间：</span>
                 <span class="text-gray-900">{{ formatDateTime(order.created_at) }}</span>
@@ -176,7 +183,7 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Loading, ArrowLeft, Edit, View } from '@element-plus/icons-vue';
+import { Loading, ArrowLeft, Edit, View, UserFilled } from '@element-plus/icons-vue';
 import FrontendLayout from '../../components/frontend/FrontendLayout.vue';
 import { orderApi, type Order } from '../../api/order';
 

@@ -109,6 +109,7 @@ const getGroupLabel = (group: string) => {
     payment: '支付配置',
     reservation: '预约配置',
     points: '积分配置',
+    table: '桌位配置',
   };
   return labels[group] || group;
 };

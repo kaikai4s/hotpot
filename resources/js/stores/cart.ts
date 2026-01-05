@@ -91,12 +91,12 @@ export const useCartStore = defineStore('cart', () => {
     saveCart();
   };
 
-  // 更新商品数量
-  const updateQuantity = (index: number, quantity: number) => {
+  // 更新商品数量（通过索引）
+  const updateQuantityByIndex = (index: number, quantity: number) => {
     const item = items.value[index];
     if (item) {
       if (quantity <= 0) {
-        removeItem(index);
+        removeItemByIndex(index);
       } else {
         item.quantity = quantity;
         saveCart();
@@ -104,11 +104,43 @@ export const useCartStore = defineStore('cart', () => {
     }
   };
 
-  // 移除商品
-  const removeItem = (index: number) => {
+  // 更新商品数量（通过菜品ID）
+  const updateDishQuantity = (dishId: number, quantity: number) => {
+    const index = items.value.findIndex(item => item.type === 'dish' && item.dish?.id === dishId);
+    if (index >= 0) {
+      updateQuantityByIndex(index, quantity);
+    }
+  };
+
+  // 更新商品数量（通过套餐ID）
+  const updateComboQuantity = (comboId: number, quantity: number) => {
+    const index = items.value.findIndex(item => item.type === 'combo' && item.combo?.id === comboId);
+    if (index >= 0) {
+      updateQuantityByIndex(index, quantity);
+    }
+  };
+
+  // 移除商品（通过索引）
+  const removeItemByIndex = (index: number) => {
     if (index >= 0 && index < items.value.length) {
       items.value.splice(index, 1);
       saveCart();
+    }
+  };
+
+  // 移除商品（通过菜品ID）
+  const removeDish = (dishId: number) => {
+    const index = items.value.findIndex(item => item.type === 'dish' && item.dish?.id === dishId);
+    if (index >= 0) {
+      removeItemByIndex(index);
+    }
+  };
+
+  // 移除商品（通过套餐ID）
+  const removeCombo = (comboId: number) => {
+    const index = items.value.findIndex(item => item.type === 'combo' && item.combo?.id === comboId);
+    if (index >= 0) {
+      removeItemByIndex(index);
     }
   };
 
@@ -149,8 +181,12 @@ export const useCartStore = defineStore('cart', () => {
     totalAmount,
     addDish,
     addCombo,
-    updateQuantity,
-    removeItem,
+    updateQuantityByIndex,
+    updateDishQuantity,
+    updateComboQuantity,
+    removeItemByIndex,
+    removeDish,
+    removeCombo,
     clearCart,
     isDishInCart,
     isComboInCart,

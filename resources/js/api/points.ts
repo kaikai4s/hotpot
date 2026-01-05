@@ -54,6 +54,7 @@ export const adminPointsApi = {
   getList: (params?: {
     search?: string;
     level?: string;
+    user_id?: number | string;
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
     per_page?: number;

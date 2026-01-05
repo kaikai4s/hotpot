@@ -12,11 +12,17 @@ use App\Http\Controllers\Api\V1\BannerController;
 use App\Http\Controllers\Api\V1\ComboController;
 use App\Http\Controllers\Api\V1\CouponController;
 use App\Http\Controllers\Api\V1\DishController;
+use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\PointController;
 use App\Http\Controllers\Api\V1\PointTransactionController;
 use App\Http\Controllers\Api\V1\QueueController;
 use App\Http\Controllers\Api\V1\ReservationController;
 use App\Http\Controllers\Api\V1\ReviewController;
+use App\Http\Controllers\Api\V1\TaskController;
+use App\Http\Controllers\Api\V1\CheckinController;
+use App\Http\Controllers\Api\V1\AchievementController;
+use App\Http\Controllers\Api\V1\ShareController;
+use App\Http\Controllers\Api\V1\TableController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -45,6 +51,9 @@ Route::prefix('v1')->group(function () {
 
     // 需要认证的接口
     Route::middleware('auth:sanctum')->group(function () {
+        // 桌位相关（用于点餐时选择桌位）
+        Route::get('/tables/available', [TableController::class, 'getAvailableTables']);
+        Route::post('/tables/join-team', [TableController::class, 'joinTeam']);
         Route::get('/users/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 
@@ -97,6 +106,33 @@ Route::prefix('v1')->group(function () {
         // 文件上传（前端用户）
         Route::post('/upload/image', [\App\Http\Controllers\Api\V1\UploadController::class, 'uploadImage']);
             Route::post('/orders/{orderId}/cancel', [\App\Http\Controllers\Api\V1\OrderController::class, 'cancel']);
+
+        // 邀请相关
+        Route::get('/invitations/my', [InvitationController::class, 'getMyInvitation']);
+        Route::get('/invitations/friends', [InvitationController::class, 'getFriends']);
+        Route::post('/invitations/register', [InvitationController::class, 'registerWithInviteCode']);
+
+        // 任务相关
+        Route::get('/tasks', [TaskController::class, 'index']);
+        Route::get('/tasks/{id}', [TaskController::class, 'show']);
+        Route::post('/tasks/{id}/complete', [TaskController::class, 'complete']);
+
+        // 签到相关
+        Route::post('/checkin', [CheckinController::class, 'checkin']);
+        Route::get('/checkin/stat', [CheckinController::class, 'stat']);
+        Route::get('/checkin/calendar', [CheckinController::class, 'calendar']);
+        Route::post('/checkin/makeup', [CheckinController::class, 'makeup']);
+
+        // 成就相关
+        Route::get('/achievements', [AchievementController::class, 'index']);
+        Route::get('/achievements/{id}', [AchievementController::class, 'show']);
+        Route::post('/achievements/equip-title', [AchievementController::class, 'equipTitle']);
+        Route::post('/achievements/unequip-title', [AchievementController::class, 'unequipTitle']);
+
+        // 分享相关
+        Route::post('/shares', [ShareController::class, 'record']);
+        Route::get('/shares/stats', [ShareController::class, 'stats']);
+        Route::get('/shares', [ShareController::class, 'index']);
     });
 });
 
