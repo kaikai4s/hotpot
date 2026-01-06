@@ -134,11 +134,28 @@ const calendar = ref<CheckinCalendar>({
 const loadCheckinStat = async () => {
   try {
     const response = await checkinApi.getStat();
-    if (response.code === 200) {
-      checkinStat.value = response.data;
+    console.log('签到统计API响应:', response);
+    
+    if (response && response.code === 200 && response.data) {
+      checkinStat.value = {
+        total_days: response.data.total_days ?? 0,
+        current_consecutive_days: response.data.current_consecutive_days ?? 0,
+        max_consecutive_days: response.data.max_consecutive_days ?? 0,
+        last_checkin_date: response.data.last_checkin_date ?? null,
+        is_checked_today: response.data.is_checked_today ?? false,
+        today_reward_points: response.data.today_reward_points ?? null,
+        makeup_count: response.data.makeup_count ?? 0,
+      };
+    } else {
+      console.warn('签到统计API返回异常:', response);
+      ElMessage.warning(response?.message || '获取签到统计失败');
     }
   } catch (error: any) {
-    ElMessage.error(error.response?.data?.message || '加载失败');
+    console.error('加载签到统计失败:', error);
+    const errorMessage = error.response?.data?.message || error.message || '加载失败';
+    if (error.response?.status !== 401) {
+      ElMessage.error('加载签到统计失败: ' + errorMessage);
+    }
   }
 };
 
@@ -146,11 +163,52 @@ const loadCalendar = async () => {
   calendarLoading.value = true;
   try {
     const response = await checkinApi.getCalendar(currentYear.value, currentMonth.value);
-    if (response.code === 200) {
-      calendar.value = response.data;
+    console.log('签到日历API响应:', response);
+    
+    if (response && response.code === 200 && response.data) {
+      calendar.value = {
+        year: response.data.year ?? currentYear.value,
+        month: response.data.month ?? currentMonth.value,
+        calendar: response.data.calendar ?? [],
+        stat: response.data.stat ?? {
+          total_days: 0,
+          current_consecutive_days: 0,
+          max_consecutive_days: 0,
+          last_checkin_date: null,
+        },
+      };
+    } else {
+      console.warn('签到日历API返回异常:', response);
+      calendar.value = {
+        year: currentYear.value,
+        month: currentMonth.value,
+        calendar: [],
+        stat: {
+          total_days: 0,
+          current_consecutive_days: 0,
+          max_consecutive_days: 0,
+          last_checkin_date: null,
+        },
+      };
+      ElMessage.warning(response?.message || '获取签到日历失败');
     }
   } catch (error: any) {
-    ElMessage.error(error.response?.data?.message || '加载失败');
+    console.error('加载签到日历失败:', error);
+    calendar.value = {
+      year: currentYear.value,
+      month: currentMonth.value,
+      calendar: [],
+      stat: {
+        total_days: 0,
+        current_consecutive_days: 0,
+        max_consecutive_days: 0,
+        last_checkin_date: null,
+      },
+    };
+    const errorMessage = error.response?.data?.message || error.message || '加载失败';
+    if (error.response?.status !== 401) {
+      ElMessage.error('加载签到日历失败: ' + errorMessage);
+    }
   } finally {
     calendarLoading.value = false;
   }

@@ -77,8 +77,14 @@
             <!-- 评价头部 -->
             <div class="flex justify-between items-start mb-4">
               <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-red-200 to-orange-200 flex items-center justify-center">
-                  <span class="text-xl">{{ review.user?.nickname?.charAt(0) || 'U' }}</span>
+                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-red-200 to-orange-200 flex items-center justify-center overflow-hidden">
+                  <img 
+                    v-if="review.user?.avatar_url" 
+                    :src="review.user.avatar_url" 
+                    :alt="review.user?.nickname || '用户'" 
+                    class="w-full h-full object-cover"
+                  />
+                  <span v-else class="text-xl">{{ review.user?.nickname?.charAt(0) || 'U' }}</span>
                 </div>
                 <div>
                   <p class="font-semibold text-gray-900">
@@ -101,6 +107,14 @@
             <!-- 评价内容 -->
             <div class="mb-4">
               <p class="text-gray-700 mb-2">{{ review.content || '暂无评价内容' }}</p>
+              <el-button 
+                type="primary" 
+                size="small" 
+                link
+                @click="viewReviewDetail(review.id)"
+              >
+                查看详情
+              </el-button>
             </div>
 
             <!-- 评价图片 -->
@@ -172,6 +186,111 @@
         />
       </div>
     </el-dialog>
+
+    <!-- 评价详情对话框 -->
+    <el-dialog
+      v-model="showDetailDialog"
+      title="评价详情"
+      width="800px"
+      destroy-on-close
+    >
+      <div v-if="selectedReview" class="space-y-4">
+        <!-- 用户信息 -->
+        <div class="flex items-center gap-3 pb-4 border-b">
+          <div class="w-16 h-16 rounded-full bg-gradient-to-br from-red-200 to-orange-200 flex items-center justify-center overflow-hidden">
+            <img 
+              v-if="selectedReview.user?.avatar_url" 
+              :src="selectedReview.user.avatar_url" 
+              :alt="selectedReview.user?.nickname || '用户'" 
+              class="w-full h-full object-cover"
+            />
+            <span v-else class="text-2xl">{{ selectedReview.user?.nickname?.charAt(0) || 'U' }}</span>
+          </div>
+          <div>
+            <p class="font-semibold text-gray-900">
+              <span v-if="selectedReview.user?.equipped_title" class="text-yellow-600 font-bold mr-1">[{{ selectedReview.user.equipped_title }}]</span>
+              {{ selectedReview.user?.nickname || '匿名用户' }}
+              <span
+                v-if="selectedReview.user?.level"
+                class="ml-1 text-sm font-bold"
+                :style="selectedReview.user.level.color ? { color: selectedReview.user.level.color } : { color: '#9333ea' }"
+              >[{{ selectedReview.user.level.name }}]</span>
+            </p>
+            <p class="text-sm text-gray-500">{{ formatDateTime(selectedReview.created_at) }}</p>
+          </div>
+        </div>
+
+        <!-- 订单菜品信息 -->
+        <div v-if="orderDishes.length > 0">
+          <h3 class="font-semibold text-gray-900 mb-2">订单菜品：</h3>
+          <div class="grid grid-cols-2 gap-2">
+            <div
+              v-for="dish in orderDishes"
+              :key="dish.dish_id"
+              class="p-2 rounded"
+              :class="dish.is_reviewed ? 'bg-green-50 border border-green-200' : 'bg-gray-50'"
+            >
+              <div class="flex items-center justify-between">
+                <span class="text-sm">{{ dish.dish_name }}</span>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-gray-500">×{{ dish.quantity }}</span>
+                  <el-tag v-if="dish.is_reviewed" type="success" size="small">已评价</el-tag>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 评价内容 -->
+        <div>
+          <h3 class="font-semibold text-gray-900 mb-2">评价内容：</h3>
+          <div class="p-3 bg-gray-50 rounded">{{ selectedReview.content || '暂无评价内容' }}</div>
+        </div>
+
+        <!-- 评分 -->
+        <div>
+          <h3 class="font-semibold text-gray-900 mb-2">评分：</h3>
+          <el-rate v-model="selectedReview.rating" disabled show-score text-color="#ff9900" />
+        </div>
+
+        <!-- 评价图片 -->
+        <div v-if="selectedReview.images && selectedReview.images.length > 0">
+          <h3 class="font-semibold text-gray-900 mb-2">评价图片：</h3>
+          <div class="grid grid-cols-3 gap-2">
+            <img
+              v-for="(image, index) in selectedReview.images"
+              :key="index"
+              :src="image"
+              :alt="`评价图片${index + 1}`"
+              class="w-full h-32 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+              @click="previewImage(image)"
+            />
+          </div>
+        </div>
+
+        <!-- 标签 -->
+        <div v-if="selectedReview.tags && selectedReview.tags.length > 0">
+          <h3 class="font-semibold text-gray-900 mb-2">标签：</h3>
+          <div class="flex flex-wrap gap-2">
+            <el-tag v-for="tag in selectedReview.tags" :key="tag" size="small">{{ tag }}</el-tag>
+          </div>
+        </div>
+
+        <!-- 管理员回复 -->
+        <div v-if="selectedReview.admin_reply" class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+          <div class="flex items-start gap-2">
+            <el-icon class="text-blue-500 mt-1"><ChatDotRound /></el-icon>
+            <div class="flex-1">
+              <p class="font-semibold text-blue-900 mb-1">管理员回复：</p>
+              <p class="text-blue-800">{{ selectedReview.admin_reply }}</p>
+              <p v-if="selectedReview.admin_replied_at" class="text-xs text-blue-600 mt-1">
+                {{ formatDateTime(selectedReview.admin_replied_at) }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </FrontendLayout>
 </template>
 
@@ -179,7 +298,7 @@
 import { ref, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { ArrowLeft, Loading } from '@element-plus/icons-vue';
+import { ArrowLeft, Loading, ChatDotRound } from '@element-plus/icons-vue';
 import FrontendLayout from '../../components/frontend/FrontendLayout.vue';
 import { reviewApi, type Review } from '../../api/review';
 import { dishApi, type Dish } from '../../api/dish';
@@ -212,6 +331,27 @@ const previewImageUrl = ref('');
 const previewImage = (imageUrl: string) => {
   previewImageUrl.value = imageUrl;
   showImagePreview.value = true;
+};
+
+// 评价详情对话框
+const showDetailDialog = ref(false);
+const selectedReview = ref<any>(null);
+const orderDishes = ref<Array<{ dish_id: number; dish_name: string; quantity: number; is_reviewed: boolean }>>([]);
+
+const viewReviewDetail = async (reviewId: number) => {
+  try {
+    const response = await reviewApi.getDetail(reviewId);
+    if (response.code === 200 && response.data) {
+      selectedReview.value = response.data.review;
+      orderDishes.value = response.data.order_dishes || [];
+      showDetailDialog.value = true;
+    } else {
+      ElMessage.error(response.message || '获取评价详情失败');
+    }
+  } catch (error: any) {
+    console.error('获取评价详情失败:', error);
+    ElMessage.error(error.response?.data?.message || error.message || '获取评价详情失败');
+  }
 };
 
 const formatDateTime = (datetime: string) => {

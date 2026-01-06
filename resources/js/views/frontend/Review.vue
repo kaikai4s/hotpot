@@ -22,17 +22,29 @@
         </div>
         
         <div class="space-y-6">
-          <!-- 选择菜品 -->
+          <!-- 选择菜品（多选） -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">选择菜品</label>
-            <el-select v-model="form.dish_id" placeholder="请选择要评价的菜品" class="w-full">
+            <label class="block text-sm font-medium text-gray-700 mb-2">选择菜品（可多选）</label>
+            <el-select 
+              v-model="form.dish_ids" 
+              placeholder="请选择要评价的菜品，可多选" 
+              class="w-full"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+            >
               <el-option
-                v-for="dish in dishes"
+                v-for="dish in availableDishes"
                 :key="dish.id"
                 :label="dish.name"
                 :value="dish.id"
-              />
+                :disabled="dish.reviewed"
+              >
+                <span>{{ dish.name }}</span>
+                <el-tag v-if="dish.reviewed" type="success" size="small" class="ml-2">已评价</el-tag>
+              </el-option>
             </el-select>
+            <p class="text-xs text-gray-500 mt-1">已评价的菜品将不再显示在列表中</p>
           </div>
 
           <!-- 评分 -->
@@ -152,7 +164,7 @@ const loading = ref(false);
 const order = ref<Order | null>(null);
 const form = ref({
   order_id: 0,
-  dish_id: null as number | null,
+  dish_ids: [] as number[],
   rating: 5,
   content: '',
   images: [] as string[],
@@ -166,7 +178,21 @@ const myReviews = ref<Review[]>([]);
 const availableTags = ['好吃', '分量足', '新鲜', '服务好', '环境好', '性价比高'];
 
 const canSubmit = computed(() => {
-  return form.value.dish_id && form.value.rating > 0 && form.value.content.trim().length > 0;
+  return form.value.dish_ids.length > 0 && form.value.rating > 0 && form.value.content.trim().length > 0;
+});
+
+// 计算可选择的菜品列表（排除已评价的）
+const availableDishes = computed(() => {
+  if (!dishes.value || !order.value) return [];
+  
+  const reviewedDishIds = new Set(
+    myReviews.value.map((review: Review) => review.dish_id)
+  );
+  
+  return dishes.value.map(dish => ({
+    ...dish,
+    reviewed: reviewedDishIds.has(dish.id),
+  }));
 });
 
 const toggleTag = (tag: string) => {
@@ -313,17 +339,27 @@ const submitReview = async () => {
   try {
     loading.value = true;
     
-    const response = await reviewApi.create({
-      order_id: form.value.order_id,
-      dish_id: form.value.dish_id!,
-      rating: form.value.rating,
-      content: form.value.content.trim() || undefined,
-      images: form.value.images.length > 0 ? form.value.images : undefined,
-      tags: form.value.tags.length > 0 ? form.value.tags : undefined,
-    });
-
-    if (response.code === 201) {
-      ElMessage.success('评价提交成功！感谢您的反馈');
+    // 批量提交评价（为每个选中的菜品创建一条评价）
+    const promises = form.value.dish_ids.map(dishId => 
+      reviewApi.create({
+        order_id: form.value.order_id,
+        dish_id: dishId,
+        rating: form.value.rating,
+        content: form.value.content.trim() || undefined,
+        images: form.value.images.length > 0 ? form.value.images : undefined,
+        tags: form.value.tags.length > 0 ? form.value.tags : undefined,
+      })
+    );
+    
+    const responses = await Promise.all(promises);
+    const successCount = responses.filter(r => r.code === 201).length;
+    const failCount = responses.length - successCount;
+    
+    if (successCount > 0) {
+      ElMessage.success(`成功提交 ${successCount} 条评价！感谢您的反馈`);
+      if (failCount > 0) {
+        ElMessage.warning(`${failCount} 条评价提交失败，请重试`);
+      }
       
       // 刷新订单详情和评价列表（使用静默模式，避免显示提示）
       await Promise.all([
@@ -357,7 +393,7 @@ const submitReview = async () => {
       // 重置表单，准备评价下一个菜品
       form.value = {
         order_id: form.value.order_id,
-        dish_id: null,
+        dish_ids: [],
         rating: 5,
         content: '',
         images: [],
@@ -365,7 +401,7 @@ const submitReview = async () => {
       };
       fileList.value = [];
     } else {
-      ElMessage.error(response.message || '提交失败');
+      ElMessage.error('所有评价提交失败，请重试');
     }
   } catch (error: any) {
     console.error('提交评价失败:', error);
@@ -397,6 +433,9 @@ const fetchOrderDetail = async (silent: boolean = false) => {
           name: item.dish?.name || `菜品 ${item.dish_id}`,
         }));
       }
+      
+      // 获取已评价的菜品列表
+      await fetchMyReviews();
       
       // 检查订单状态 - 只有待评价状态的订单才能评价
       if (order.value.status !== 'pending_review') {

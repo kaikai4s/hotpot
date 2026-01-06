@@ -11,7 +11,7 @@
         <div class="flex items-center justify-between">
           <div>
             <div class="text-sm opacity-90 mb-1">总用户数</div>
-            <div class="text-3xl font-bold">{{ statistics.total_users || 0 }}</div>
+            <div class="text-3xl font-bold">{{ statistics?.total_users || 0 }}</div>
           </div>
           <el-icon class="text-4xl opacity-50"><UserIcon /></el-icon>
         </div>
@@ -20,7 +20,7 @@
         <div class="flex items-center justify-between">
           <div>
             <div class="text-sm opacity-90 mb-1">今日新增</div>
-            <div class="text-3xl font-bold">{{ statistics.today_users || 0 }}</div>
+            <div class="text-3xl font-bold">{{ statistics?.today_users || 0 }}</div>
           </div>
           <el-icon class="text-4xl opacity-50"><UserFilled /></el-icon>
         </div>
@@ -29,7 +29,7 @@
         <div class="flex items-center justify-between">
           <div>
             <div class="text-sm opacity-90 mb-1">本月新增</div>
-            <div class="text-3xl font-bold">{{ statistics.this_month_users || 0 }}</div>
+            <div class="text-3xl font-bold">{{ statistics?.this_month_users || 0 }}</div>
           </div>
           <el-icon class="text-4xl opacity-50"><Star /></el-icon>
         </div>
@@ -38,7 +38,7 @@
         <div class="flex items-center justify-between">
           <div>
             <div class="text-sm opacity-90 mb-1">有订单用户</div>
-            <div class="text-3xl font-bold">{{ statistics.users_with_orders || 0 }}</div>
+            <div class="text-3xl font-bold">{{ statistics?.users_with_orders || 0 }}</div>
           </div>
           <el-icon class="text-4xl opacity-50"><ShoppingBag /></el-icon>
         </div>
@@ -177,12 +177,20 @@
       >
         <el-table-column type="selection" width="55" />
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="nickname" label="用户信息" width="200">
+        <el-table-column prop="nickname" label="用户信息" width="280">
           <template #default="{ row }">
             <div class="flex items-center">
               <el-avatar v-if="row.avatar_url" :src="row.avatar_url" :size="40" class="mr-2" />
-              <div>
-                <div class="font-medium">{{ row.nickname || '未设置' }}</div>
+              <div class="flex-1">
+                <div class="font-medium">
+                  <span v-if="row.equipped_title" class="text-yellow-600 font-bold mr-1">[{{ row.equipped_title }}]</span>
+                  {{ row.nickname || '未设置' }}
+                  <span
+                    v-if="row.member_points?.level_info"
+                    class="ml-1 text-xs font-bold"
+                    :style="row.member_points.level_info.color ? { color: row.member_points.level_info.color } : { color: '#9333ea' }"
+                  >[{{ row.member_points.level_info.name }}]</span>
+                </div>
                 <div class="text-xs text-gray-500">{{ row.phone || '未绑定手机' }}</div>
               </div>
             </div>
@@ -599,8 +607,8 @@
 import { ref, onMounted, reactive } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Refresh, Search, Filter, Delete, User as UserIcon, UserFilled, Star, ShoppingBag } from '@element-plus/icons-vue';
-import { userApi } from '../api/user';
-import type { User, UserDetail, UserStatistics } from '../api/user';
+import { userApi } from '../api/admin/user';
+import type { User, UserDetail, UserStatistics } from '../api/admin/user';
 import type { FormInstance, FormRules } from 'element-plus';
 import { useRouter } from 'vue-router';
 
@@ -698,8 +706,11 @@ const getLevelName = (levelCode: string): string => {
 const fetchStatistics = async () => {
   try {
     const response = await userApi.getStatistics();
-    if (response.code === 200 && response.data) {
+    if (response.code === 200 && response.data && response.data.statistics) {
       statistics.value = response.data.statistics;
+    } else {
+      // 如果获取失败，保持默认值
+      console.warn('获取统计数据失败，使用默认值', response);
     }
   } catch (error) {
     console.error('获取统计数据失败:', error);

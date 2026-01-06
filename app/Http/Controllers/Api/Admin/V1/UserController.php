@@ -151,6 +151,7 @@ class UserController extends Controller
                 'unionid' => $user->unionid,
                 'nickname' => $user->nickname,
                 'avatar_url' => $user->avatar_url,
+                'equipped_title' => $user->equipped_title,
                 'phone' => $user->phone,
                 'gender' => $user->gender,
                 'is_active' => $user->is_active ?? true,
@@ -424,12 +425,14 @@ class UserController extends Controller
             'code' => 200,
             'message' => 'success',
             'data' => [
-                'total_users' => $totalUsers,
-                'today_users' => $todayUsers,
-                'this_month_users' => $thisMonthUsers,
-                'users_with_phone' => $usersWithPhone,
-                'users_with_orders' => $usersWithOrders,
-                'users_with_points' => $usersWithPoints,
+                'statistics' => [
+                    'total_users' => $totalUsers,
+                    'today_users' => $todayUsers,
+                    'this_month_users' => $thisMonthUsers,
+                    'users_with_phone' => $usersWithPhone,
+                    'users_with_orders' => $usersWithOrders,
+                    'users_with_points' => $usersWithPoints,
+                ],
             ],
         ]);
     }

@@ -250,7 +250,7 @@ import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'elem
 import { Plus, Delete } from '@element-plus/icons-vue';
 import type { Table } from '../types';
 import { tableApi, type CreateTableRequest } from '../api/table';
-import { userApi, type User } from '../api/user';
+import { userApi, type User } from '../api/admin/user';
 import TableLayoutEditor from '../components/TableLayoutEditor.vue';
 
 const tables = ref<Table[]>([]);

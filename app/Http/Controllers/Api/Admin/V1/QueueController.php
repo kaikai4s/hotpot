@@ -39,7 +39,10 @@ class QueueController extends Controller
             'page_size' => 'nullable|integer|min:1|max:100',
         ]);
 
-        $query = Queue::with(['user:id,nickname,avatar_url,phone']);
+        $query = Queue::with([
+            'user:id,nickname,avatar_url,equipped_title,phone',
+            'user.memberPoints',
+        ]);
 
         // 状态筛选
         if ($request->filled('status')) {
@@ -75,11 +78,32 @@ class QueueController extends Controller
         $pageSize = $request->input('page_size', 20);
         $queues = $query->orderBy('position', 'asc')->orderBy('joined_at', 'desc')->paginate($pageSize, ['*'], 'page', $page);
 
+        // 格式化排队数据，确保用户信息包含称号和段位
+        $queuesData = $queues->items();
+        foreach ($queuesData as $queue) {
+            if ($queue->user) {
+                if (!$queue->user->relationLoaded('memberPoints')) {
+                    $queue->user->load('memberPoints');
+                }
+                // 添加段位详细信息（包含颜色）
+                if ($queue->user->memberPoints) {
+                    $levelModel = \App\Models\PointLevel::where('code', $queue->user->memberPoints->level)->first();
+                    if ($levelModel) {
+                        $queue->user->level = [
+                            'code' => $levelModel->code,
+                            'name' => $levelModel->name,
+                            'icon' => $levelModel->icon,
+                            'color' => $levelModel->color,
+                        ];
+                    }
+                }
+            }
+        }
+
         // 获取叫号预留时间配置
         $calledTimeoutMinutes = (int) Configuration::getValue('queue_called_timeout_minutes', 15);
 
         // 为每个排队记录添加超时状态
-        $queuesData = $queues->items();
         foreach ($queuesData as $queue) {
             // 计算是否超时（仅对已叫号状态判断）
             if ($queue->status === 'called' && $queue->called_at) {
@@ -126,7 +150,23 @@ class QueueController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $queue = Queue::with(['user:id,nickname,avatar_url,phone'])->findOrFail($id);
+        $queue = Queue::with([
+            'user:id,nickname,avatar_url,equipped_title,phone',
+            'user.memberPoints',
+        ])->findOrFail($id);
+
+        // 格式化用户信息，包含段位
+        if ($queue->user && $queue->user->memberPoints) {
+            $levelModel = \App\Models\PointLevel::where('code', $queue->user->memberPoints->level)->first();
+            if ($levelModel) {
+                $queue->user->level = [
+                    'code' => $levelModel->code,
+                    'name' => $levelModel->name,
+                    'icon' => $levelModel->icon,
+                    'color' => $levelModel->color,
+                ];
+            }
+        }
 
         // 获取叫号预留时间配置
         $calledTimeoutMinutes = (int) Configuration::getValue('queue_called_timeout_minutes', 15);

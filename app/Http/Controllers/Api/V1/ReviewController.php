@@ -103,7 +103,10 @@ class ReviewController extends Controller
                 $query->orderBy('created_at', 'desc');
         }
 
-        $reviews = $query->with(['user.memberPoints'])->paginate($pageSize, ['*'], 'page', $page);
+        $reviews = $query->with([
+            'user:id,nickname,avatar_url,equipped_title',
+            'user.memberPoints',
+        ])->paginate($pageSize, ['*'], 'page', $page);
 
         $ratingDistribution = $dish->reviews()
             ->where('status', 'approved')
@@ -166,7 +169,14 @@ class ReviewController extends Controller
             'page_size' => 'nullable|integer|min:1|max:50',
         ]);
 
-        $query = \App\Models\Review::with(['user.memberPoints', 'dish', 'order', 'adminReplier', 'adopter']);
+        $query = \App\Models\Review::with([
+            'user:id,nickname,avatar_url,equipped_title',
+            'user.memberPoints',
+            'dish',
+            'order',
+            'adminReplier',
+            'adopter',
+        ]);
 
         // 如果请求当前用户的评价，则不过滤状态（显示所有状态的评价）
         // 否则只显示已审核通过的评价
@@ -249,7 +259,14 @@ class ReviewController extends Controller
             'page_size' => 'nullable|integer|min:1|max:50',
         ]);
 
-        $query = \App\Models\Review::with(['user.memberPoints', 'dish', 'order', 'adminReplier', 'adopter'])
+        $query = \App\Models\Review::with([
+            'user:id,nickname,avatar_url,equipped_title',
+            'user.memberPoints',
+            'dish',
+            'order',
+            'adminReplier',
+            'adopter',
+        ])
             ->where('status', 'approved')
             ->where('is_adopted', true)
             ->where('tracking_status', '!=', 'cancelled');
@@ -295,6 +312,94 @@ class ReviewController extends Controller
                     'total_count' => $reviews->total(),
                     'page_size' => $reviews->perPage(),
                 ],
+            ],
+        ]);
+    }
+
+    /**
+     * 获取首页展示的评价
+     */
+    public function getFeaturedReviews(): JsonResponse
+    {
+        $reviews = \App\Models\Review::with(['user:id,nickname,avatar_url,equipped_title'])
+            ->where('status', 'approved')
+            ->where('is_featured', true)
+            ->orderBy('created_at', 'desc')
+            ->limit(6)
+            ->get();
+
+        // 格式化评价数据
+        $formattedReviews = $reviews->map(function ($review) {
+            return [
+                'id' => $review->id,
+                'user_id' => $review->user_id,
+                'rating' => $review->rating,
+                'content' => $review->content,
+                'created_at' => $review->created_at->toISOString(),
+                'user' => $review->user ? [
+                    'id' => $review->user->id,
+                    'nickname' => $review->user->nickname,
+                    'avatar_url' => $review->user->avatar_url,
+                    'equipped_title' => $review->user->equipped_title,
+                ] : null,
+            ];
+        });
+
+        return response()->json([
+            'code' => 200,
+            'message' => '获取成功',
+            'data' => [
+                'reviews' => $formattedReviews,
+            ],
+        ]);
+    }
+
+    /**
+     * 获取评价详情（包含订单中的所有菜品信息）
+     */
+    public function show(int $reviewId): JsonResponse
+    {
+        $review = \App\Models\Review::with([
+            'user:id,nickname,avatar_url,equipped_title',
+            'user.memberPoints',
+            'dish',
+            'order.items.dish',
+            'adminReplier',
+            'adopter',
+        ])->findOrFail($reviewId);
+
+        // 格式化用户信息，包含段位
+        if ($review->user && $review->user->memberPoints) {
+            $levelModel = \App\Models\PointLevel::where('code', $review->user->memberPoints->level)->first();
+            if ($levelModel) {
+                $review->user->level = [
+                    'code' => $levelModel->code,
+                    'name' => $levelModel->name,
+                    'icon' => $levelModel->icon,
+                    'color' => $levelModel->color,
+                ];
+            }
+        }
+
+        // 获取订单中的所有菜品信息（用于显示评价了哪些菜品）
+        $orderDishes = [];
+        if ($review->order && $review->order->items) {
+            $orderDishes = $review->order->items->map(function ($item) use ($review) {
+                return [
+                    'dish_id' => $item->dish_id,
+                    'dish_name' => $item->dish->name ?? "菜品 {$item->dish_id}",
+                    'quantity' => $item->quantity,
+                    'is_reviewed' => $item->dish_id === $review->dish_id, // 当前评价的菜品
+                ];
+            })->toArray();
+        }
+
+        return response()->json([
+            'code' => 200,
+            'message' => '获取成功',
+            'data' => [
+                'review' => $review,
+                'order_dishes' => $orderDishes, // 订单中的所有菜品
             ],
         ]);
     }

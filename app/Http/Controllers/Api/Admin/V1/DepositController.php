@@ -40,7 +40,12 @@ class DepositController extends Controller
         ]);
 
         try {
-            $query = Reservation::with(['user', 'table', 'order'])
+            $query = Reservation::with([
+                'user:id,nickname,avatar_url,equipped_title',
+                'user.memberPoints',
+                'table',
+                'order',
+            ])
                 ->whereNotNull('deposit_amount')
                 ->where('deposit_amount', '>', 0);
 
@@ -72,6 +77,28 @@ class DepositController extends Controller
             $reservations = $query->orderBy('created_at', 'desc')
                 ->paginate($pageSize, ['*'], 'page', $page);
 
+            // 格式化预约数据，确保用户信息包含称号和段位
+            $formattedReservations = $reservations->items();
+            foreach ($formattedReservations as $reservation) {
+                if ($reservation->user) {
+                    if (!$reservation->user->relationLoaded('memberPoints')) {
+                        $reservation->user->load('memberPoints');
+                    }
+                    // 添加段位详细信息（包含颜色）
+                    if ($reservation->user->memberPoints) {
+                        $levelModel = \App\Models\PointLevel::where('code', $reservation->user->memberPoints->level)->first();
+                        if ($levelModel) {
+                            $reservation->user->level = [
+                                'code' => $levelModel->code,
+                                'name' => $levelModel->name,
+                                'icon' => $levelModel->icon,
+                                'color' => $levelModel->color,
+                            ];
+                        }
+                    }
+                }
+            }
+
             // 统计未查看定金数量（只统计有定金的预约）
             $unviewedCount = Reservation::whereNotNull('deposit_amount')
                 ->where('deposit_amount', '>', 0)
@@ -82,7 +109,7 @@ class DepositController extends Controller
                 'code' => 200,
                 'message' => '获取成功',
                 'data' => [
-                    'reservations' => $reservations->items(),
+                    'reservations' => $formattedReservations,
                     'pagination' => [
                         'current_page' => $reservations->currentPage(),
                         'total_pages' => $reservations->lastPage(),

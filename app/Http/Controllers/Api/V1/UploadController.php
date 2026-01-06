@@ -96,16 +96,21 @@ class UploadController extends Controller
                 ], 500);
             }
             
-            // 返回可访问的URL - 使用完整的URL而不是相对路径
-            // 这样前端就不需要拼接 baseURL，避免前端开发服务器和后端服务器不一致的问题
+            // 【修复】返回相对路径URL，让前端使用当前域名访问
+            // 这样可以避免前端开发服务器（5173）和后端服务器（8000）端口不一致的问题
+            // 前端会通过代理或同源策略访问图片，使用相对路径更灵活
             $relativeUrl = Storage::url($path);
-            $fullUrl = url($relativeUrl);
+            
+            // 如果前端和后端在不同端口，返回相对路径让前端自己处理
+            // 如果前端和后端在同一域名，也可以返回完整URL
+            // 这里优先返回相对路径，前端可以根据需要转换为完整URL
+            $imageUrl = $relativeUrl;
 
             return response()->json([
                 'code' => 200,
                 'message' => '上传成功',
                 'data' => [
-                    'url' => $fullUrl,
+                    'url' => $imageUrl,
                     'path' => $path,
                     'filename' => $filename,
                 ],

@@ -37,7 +37,8 @@ class ReviewController extends Controller
 
         // 优化查询：只加载必要的关联字段，减少查询时间
         $query = Review::with([
-            'user:id,nickname,avatar_url',
+            'user:id,nickname,avatar_url,equipped_title',
+            'user.memberPoints',
             'dish:id,name',
             'order:id,order_no',
             'adminReplier:id,name',
@@ -81,13 +82,35 @@ class ReviewController extends Controller
         $pageSize = $request->input('page_size', 20);
         $reviews = $query->orderBy('reviews.created_at', 'desc')->paginate($pageSize, ['reviews.*'], 'page', $page);
 
+        // 格式化评价数据，确保用户信息包含称号和段位
+        $formattedReviews = $reviews->items();
+        foreach ($formattedReviews as $review) {
+            if ($review->user) {
+                if (!$review->user->relationLoaded('memberPoints')) {
+                    $review->user->load('memberPoints');
+                }
+                // 添加段位详细信息（包含颜色）
+                if ($review->user->memberPoints) {
+                    $levelModel = \App\Models\PointLevel::where('code', $review->user->memberPoints->level)->first();
+                    if ($levelModel) {
+                        $review->user->level = [
+                            'code' => $levelModel->code,
+                            'name' => $levelModel->name,
+                            'icon' => $levelModel->icon,
+                            'color' => $levelModel->color,
+                        ];
+                    }
+                }
+            }
+        }
+
         // 统计未查看评价数量 - 优化：使用缓存或索引查询
         $unviewedCount = Review::where('is_viewed', false)->count();
 
         return response()->json([
             'code' => 200,
             'data' => [
-                'reviews' => $reviews->items(),
+                'reviews' => $formattedReviews,
                 'pagination' => [
                     'current_page' => $reviews->currentPage(),
                     'total_pages' => $reviews->lastPage(),
@@ -101,8 +124,27 @@ class ReviewController extends Controller
 
     public function show(int $reviewId): JsonResponse
     {
-        $review = Review::with(['user', 'dish', 'order', 'adminReplier', 'adopter'])
-            ->findOrFail($reviewId);
+        $review = Review::with([
+            'user:id,nickname,avatar_url,equipped_title',
+            'user.memberPoints',
+            'dish',
+            'order',
+            'adminReplier',
+            'adopter',
+        ])->findOrFail($reviewId);
+
+        // 格式化用户信息，包含段位
+        if ($review->user && $review->user->memberPoints) {
+            $levelModel = \App\Models\PointLevel::where('code', $review->user->memberPoints->level)->first();
+            if ($levelModel) {
+                $review->user->level = [
+                    'code' => $levelModel->code,
+                    'name' => $levelModel->name,
+                    'icon' => $levelModel->icon,
+                    'color' => $levelModel->color,
+                ];
+            }
+        }
 
         // 标记为已查看
         if (!$review->is_viewed) {
@@ -334,6 +376,34 @@ class ReviewController extends Controller
                 'code' => 500,
                 'message' => '删除失败：' . $e->getMessage(),
             ], 500);
+        }
+    }
+
+    /**
+     * 更新评价的首页展示状态
+     */
+    public function updateFeatured(int $reviewId, Request $request): JsonResponse
+    {
+        $request->validate([
+            'is_featured' => 'required|boolean',
+        ]);
+
+        try {
+            $review = Review::findOrFail($reviewId);
+            $review->update([
+                'is_featured' => $request->boolean('is_featured'),
+            ]);
+
+            return response()->json([
+                'code' => 200,
+                'message' => $request->boolean('is_featured') ? '已设置为首页展示' : '已取消首页展示',
+                'data' => $review->load(['user', 'dish', 'order', 'adminReplier', 'adopter']),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'code' => 404,
+                'message' => $e->getMessage() ?: '评价不存在',
+            ], 404);
         }
     }
 }

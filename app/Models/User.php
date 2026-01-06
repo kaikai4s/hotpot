@@ -26,12 +26,17 @@ class User extends Model
         'nickname',
         'avatar_url',
         'phone',
+        'password',
         'gender',
         'is_active',
         'remark',
         'invite_code',
         'invited_by',
         'equipped_title',
+    ];
+
+    protected $hidden = [
+        'password',
     ];
 
     protected $casts = [

@@ -23,11 +23,16 @@ use App\Http\Controllers\Api\V1\CheckinController;
 use App\Http\Controllers\Api\V1\AchievementController;
 use App\Http\Controllers\Api\V1\ShareController;
 use App\Http\Controllers\Api\V1\TableController;
+use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     // 公开接口
     Route::post('/auth/wechat-login', [AuthController::class, 'wechatLogin']);
+    Route::post('/auth/phone-code-login', [AuthController::class, 'phoneCodeLogin']);
+    Route::post('/auth/phone-password-login', [AuthController::class, 'phonePasswordLogin']);
+    Route::post('/auth/account-password-login', [AuthController::class, 'accountPasswordLogin']);
+    Route::post('/auth/send-phone-code', [AuthController::class, 'sendPhoneCode']);
     Route::get('/wechat/config', [\App\Http\Controllers\Api\V1\WechatConfigController::class, 'getConfig']);
     
     // 公开配置接口（前台可访问）
@@ -41,6 +46,10 @@ Route::prefix('v1')->group(function () {
     Route::get('/dishes/categories', [DishController::class, 'categories']);
     Route::get('/dishes/{id}', [DishController::class, 'show']);
     Route::get('/dishes/{dishId}/reviews', [ReviewController::class, 'getDishReviews']); // 菜品评价（公开接口）
+    
+    // 首页评价（公开接口）
+    Route::get('/reviews/featured', [ReviewController::class, 'getFeaturedReviews']); // 首页展示的评价
+    Route::get('/reviews/{reviewId}', [ReviewController::class, 'show']); // 评价详情（公开接口）
     
     // 套餐相关（公开接口）
     Route::get('/combos', [ComboController::class, 'index']);
@@ -56,6 +65,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/tables/join-team', [TableController::class, 'joinTeam']);
         Route::get('/users/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
+        
+        // 用户资料编辑
+        Route::put('/users/profile', [UserController::class, 'updateProfile']);
+        Route::post('/users/set-password', [UserController::class, 'setPassword']);
 
         // 预约相关
         Route::get('/reservations', [ReservationController::class, 'index']);

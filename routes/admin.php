@@ -85,6 +85,7 @@ Route::prefix('admin/v1')->group(function () {
         Route::put('/reviews/{reviewId}/tracking', [ReviewController::class, 'updateTracking'])->middleware('permission:reviews.track');
         Route::post('/reviews/{reviewId}/tracking-update', [ReviewController::class, 'addTrackingUpdate'])->middleware('permission:reviews.track');
         Route::post('/reviews/mark-viewed', [ReviewController::class, 'markAsViewed'])->middleware('permission:reviews.update');
+        Route::put('/reviews/{reviewId}/featured', [ReviewController::class, 'updateFeatured'])->middleware('permission:reviews.update');
         Route::delete('/reviews/batch', [ReviewController::class, 'batchDelete'])->middleware('permission:reviews.delete');
 
         // 桌位管理

@@ -80,5 +80,12 @@ export const adminReviewApi = {
   batchDelete: (ids: number[]) => {
     return adminApiClient.delete<{ count: number }>('/admin/v1/reviews/batch', { data: { ids } });
   },
+
+  /**
+   * 更新评价的首页展示状态
+   */
+  updateFeatured: (id: number, isFeatured: boolean) => {
+    return adminApiClient.put<Review>(`/admin/v1/reviews/${id}/featured`, { is_featured: isFeatured });
+  },
 };
 

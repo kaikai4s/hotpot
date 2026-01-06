@@ -189,10 +189,12 @@ const loadAchievements = async () => {
   loading.value = true;
   try {
     const response = await achievementApi.getAchievements(activeCategory.value || undefined);
-    if (response.code === 200) {
+    console.log('成就API响应:', response);
+    
+    if (response && response.code === 200 && response.data) {
       if (Array.isArray(response.data.achievements)) {
         achievements.value = response.data.achievements;
-      } else {
+      } else if (response.data.achievements && typeof response.data.achievements === 'object') {
         // 如果是按分类分组的对象，合并所有分类
         const allAchievements: UserAchievement[] = [];
         Object.values(response.data.achievements).forEach((categoryAchievements: any) => {
@@ -201,12 +203,36 @@ const loadAchievements = async () => {
           }
         });
         achievements.value = allAchievements;
+      } else {
+        achievements.value = [];
       }
-      statistics.value = response.data.statistics;
+      statistics.value = response.data.statistics || {
+        completed: 0,
+        total: 0,
+        progress: 0,
+      };
+    } else {
+      console.warn('成就API返回异常:', response);
+      achievements.value = [];
+      statistics.value = {
+        completed: 0,
+        total: 0,
+        progress: 0,
+      };
+      ElMessage.warning(response?.message || '获取成就数据失败');
     }
   } catch (error: any) {
     console.error('加载成就失败:', error);
-    ElMessage.error(error.response?.data?.message || '加载失败');
+    achievements.value = [];
+    statistics.value = {
+      completed: 0,
+      total: 0,
+      progress: 0,
+    };
+    const errorMessage = error.response?.data?.message || error.message || '加载失败';
+    if (error.response?.status !== 401) {
+      ElMessage.error('加载成就失败: ' + errorMessage);
+    }
   } finally {
     loading.value = false;
   }

@@ -12,6 +12,7 @@ export interface UserInfo {
   avatar_url?: string | null;
   phone?: string | null;
   equipped_title?: string | null;
+  has_password?: boolean; // 是否已设置密码
   level?: {
     code: string;
     name: string;
@@ -27,6 +28,30 @@ export interface UserLoginResponse {
 
 export interface WechatConfig {
   app_id: string | null;
+}
+
+export interface SendPhoneCodeParams {
+  phone: string;
+  type?: 'login' | 'register' | 'reset_password';
+}
+
+export interface PhoneCodeLoginParams {
+  phone: string;
+  code: string;
+}
+
+export interface PhonePasswordLoginParams {
+  phone: string;
+  password: string;
+}
+
+export interface AccountPasswordLoginParams {
+  account: string; // 账户名（昵称或手机号）
+  password: string;
+}
+
+export interface SendPhoneCodeResponse {
+  code?: string; // 开发环境返回验证码
 }
 
 export const userAuthApi = {
@@ -46,6 +71,34 @@ export const userAuthApi = {
       payload.invite_code = inviteCode;
     }
     return apiClient.post('/v1/auth/wechat-login', payload);
+  },
+  
+  /**
+   * 发送手机验证码
+   */
+  sendPhoneCode: (params: SendPhoneCodeParams): Promise<ApiResponse<SendPhoneCodeResponse>> => {
+    return apiClient.post('/v1/auth/send-phone-code', params);
+  },
+  
+  /**
+   * 手机号+验证码登录
+   */
+  phoneCodeLogin: (params: PhoneCodeLoginParams): Promise<ApiResponse<UserLoginResponse>> => {
+    return apiClient.post('/v1/auth/phone-code-login', params);
+  },
+  
+  /**
+   * 手机号+密码登录
+   */
+  phonePasswordLogin: (params: PhonePasswordLoginParams): Promise<ApiResponse<UserLoginResponse>> => {
+    return apiClient.post('/v1/auth/phone-password-login', params);
+  },
+  
+  /**
+   * 账户名+密码登录（账户名可以是昵称或手机号）
+   */
+  accountPasswordLogin: (params: AccountPasswordLoginParams): Promise<ApiResponse<UserLoginResponse>> => {
+    return apiClient.post('/v1/auth/account-password-login', params);
   },
   
   /**
@@ -69,4 +122,3 @@ export const userAuthApi = {
     return apiClient.get(`/v1/configs/${key}`);
   },
 };
-

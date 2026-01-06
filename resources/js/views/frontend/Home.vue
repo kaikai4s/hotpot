@@ -199,6 +199,7 @@ import FrontendLayout from '../../components/frontend/FrontendLayout.vue';
 import BannerCarousel from '../../components/frontend/BannerCarousel.vue';
 import { bannerApi } from '../../api/banner';
 import { dishApi, type Dish } from '../../api/dish';
+import { reviewApi } from '../../api/review';
 import type { Review } from '../../types';
 import type { Banner } from '../../api/banner';
 
@@ -258,41 +259,19 @@ const fetchDishes = async () => {
 };
 
 const fetchReviews = async () => {
-  reviews.value = [
-    {
-      id: 1,
-      user_id: 1,
-      order_id: 1,
-      dish_id: 1,
-      rating: 5,
-      content: '非常好吃！麻辣锅底味道正宗，服务也很好，强烈推荐！',
-      status: 'approved',
-      created_at: new Date().toISOString(),
-      user: { id: 1, nickname: '张**' },
-    },
-    {
-      id: 2,
-      user_id: 2,
-      order_id: 2,
-      dish_id: 3,
-      rating: 5,
-      content: '肥牛很新鲜，口感很好，下次还会再来！',
-      status: 'approved',
-      created_at: new Date().toISOString(),
-      user: { id: 2, nickname: '李**' },
-    },
-    {
-      id: 3,
-      user_id: 3,
-      order_id: 3,
-      dish_id: 4,
-      rating: 4,
-      content: '虾很新鲜，就是价格有点贵，不过味道确实不错',
-      status: 'approved',
-      created_at: new Date().toISOString(),
-      user: { id: 3, nickname: '王**' },
-    },
-  ];
+  try {
+    const response = await reviewApi.getFeaturedReviews();
+    if (response && response.code === 200 && response.data) {
+      reviews.value = response.data.reviews || [];
+    } else {
+      // 如果API返回失败，使用空数组，不显示评价
+      reviews.value = [];
+    }
+  } catch (error) {
+    console.error('获取首页评价失败:', error);
+    // 静默失败，不影响页面显示
+    reviews.value = [];
+  }
 };
 
 const fetchBanners = async () => {

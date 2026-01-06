@@ -27,6 +27,8 @@ class AchievementController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $startTime = microtime(true);
+        
         $user = Auth::user();
         if (!$user) {
             return response()->json([
@@ -35,8 +37,21 @@ class AchievementController extends Controller
             ], 401);
         }
 
+        \Illuminate\Support\Facades\Log::info('【成就API-开始】', [
+            'user_id' => $user->id,
+            'user_nickname' => $user->nickname,
+            'category' => $request->input('category'),
+        ]);
+
         $category = $request->input('category'); // consume, review, invite, checkin, points
         $achievements = $this->achievementService->getUserAchievements($user, $category);
+        
+        $apiTime = microtime(true) - $startTime;
+        \Illuminate\Support\Facades\Log::info('【成就API-完成】', [
+            'user_id' => $user->id,
+            'api_time' => round($apiTime, 3),
+            'achievements_count' => count($achievements),
+        ]);
 
         // 统计完成数量
         $completedCount = 0;

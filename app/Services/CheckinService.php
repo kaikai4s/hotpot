@@ -208,7 +208,9 @@ class CheckinService
      */
     private function getOrCreateStat(User $user): UserCheckinStat
     {
-        return UserCheckinStat::firstOrCreate(
+        $startTime = microtime(true);
+        
+        $stat = UserCheckinStat::firstOrCreate(
             ['user_id' => $user->id],
             [
                 'total_days' => 0,
@@ -218,6 +220,18 @@ class CheckinService
                 'makeup_count' => 0,
             ]
         );
+        
+        $queryTime = microtime(true) - $startTime;
+        
+        if ($queryTime > 0.5) {
+            \Illuminate\Support\Facades\Log::warning('【签到统计-获取或创建耗时过长】', [
+                'user_id' => $user->id,
+                'was_recently_created' => $stat->wasRecentlyCreated ? 'yes' : 'no',
+                'query_time' => round($queryTime, 3),
+            ]);
+        }
+        
+        return $stat;
     }
 
     /**
@@ -372,12 +386,43 @@ class CheckinService
      */
     public function getCheckinStat(User $user): array
     {
+        $startTime = microtime(true);
+        
+        \Illuminate\Support\Facades\Log::info('【签到统计-开始】', [
+            'user_id' => $user->id,
+            'user_nickname' => $user->nickname,
+        ]);
+        
+        $statStart = microtime(true);
         $stat = $this->getOrCreateStat($user);
+        $statTime = microtime(true) - $statStart;
+        
+        \Illuminate\Support\Facades\Log::info('【签到统计-获取统计】', [
+            'user_id' => $user->id,
+            'stat_id' => $stat->id,
+            'total_days' => $stat->total_days,
+            'was_recently_created' => $stat->wasRecentlyCreated ? 'yes' : 'no',
+            'get_time' => round($statTime, 3),
+        ]);
 
         // 检查今天是否已签到
+        $todayCheckinStart = microtime(true);
         $todayCheckin = UserCheckin::where('user_id', $user->id)
             ->whereDate('checkin_date', Carbon::today())
             ->first();
+        $todayCheckinTime = microtime(true) - $todayCheckinStart;
+        
+        \Illuminate\Support\Facades\Log::info('【签到统计-查询今日签到】', [
+            'user_id' => $user->id,
+            'has_today_checkin' => $todayCheckin ? 'yes' : 'no',
+            'query_time' => round($todayCheckinTime, 3),
+        ]);
+        
+        $totalTime = microtime(true) - $startTime;
+        \Illuminate\Support\Facades\Log::info('【签到统计-完成】', [
+            'user_id' => $user->id,
+            'total_time' => round($totalTime, 3),
+        ]);
 
         return [
             'total_days' => $stat->total_days,

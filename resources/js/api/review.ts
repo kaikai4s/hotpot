@@ -24,6 +24,7 @@ export interface Review {
   adopted_at?: string;
   adopted_by?: number;
   tracking_status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  is_featured?: boolean;
   tracking_updates?: Array<{
     action: string;
     admin_id?: number;
@@ -38,6 +39,7 @@ export interface Review {
   user?: {
     id: number;
     nickname: string;
+    avatar_url?: string | null;
     equipped_title?: string | null;
     level?: {
       code: string;
@@ -161,5 +163,37 @@ export const reviewApi = {
         };
       };
     }>(`/v1/dishes/${dishId}/reviews`, { params });
+  },
+
+  /**
+   * 获取首页展示的评价
+   */
+  getFeaturedReviews: () => {
+    return apiClient.get<{
+      code: number;
+      message: string;
+      data: {
+        reviews: Review[];
+      };
+    }>('/v1/reviews/featured');
+  },
+
+  /**
+   * 获取评价详情
+   */
+  getDetail: (reviewId: number) => {
+    return apiClient.get<{
+      code: number;
+      message: string;
+      data: {
+        review: Review;
+        order_dishes: Array<{
+          dish_id: number;
+          dish_name: string;
+          quantity: number;
+          is_reviewed: boolean;
+        }>;
+      };
+    }>(`/v1/reviews/${reviewId}`);
   },
 };

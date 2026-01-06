@@ -36,7 +36,12 @@ class OrderController extends Controller
             'page_size' => 'nullable|integer|min:1|max:100',
         ]);
 
-        $query = Order::with(['user', 'table', 'items.dish']);
+        $query = Order::with([
+            'user:id,nickname,avatar_url,equipped_title',
+            'user.memberPoints',
+            'table',
+            'items.dish',
+        ]);
 
         // 状态筛选（只处理非空值）
         if ($request->filled('status')) {
@@ -77,13 +82,35 @@ class OrderController extends Controller
         $pageSize = $request->input('page_size', 20);
         $orders = $query->orderBy('created_at', 'desc')->paginate($pageSize, ['*'], 'page', $page);
 
+        // 格式化订单数据，确保用户信息包含称号和段位
+        $formattedOrders = $orders->items();
+        foreach ($formattedOrders as $order) {
+            if ($order->user) {
+                if (!$order->user->relationLoaded('memberPoints')) {
+                    $order->user->load('memberPoints');
+                }
+                // 添加段位详细信息（包含颜色）
+                if ($order->user->memberPoints) {
+                    $levelModel = \App\Models\PointLevel::where('code', $order->user->memberPoints->level)->first();
+                    if ($levelModel) {
+                        $order->user->level = [
+                            'code' => $levelModel->code,
+                            'name' => $levelModel->name,
+                            'icon' => $levelModel->icon,
+                            'color' => $levelModel->color,
+                        ];
+                    }
+                }
+            }
+        }
+
         // 统计未查看订单数量
         $unviewedCount = Order::where('is_viewed', false)->count();
 
         return response()->json([
             'code' => 200,
             'data' => [
-                'orders' => $orders->items(),
+                'orders' => $formattedOrders,
                 'pagination' => [
                     'current_page' => $orders->currentPage(),
                     'total_pages' => $orders->lastPage(),
@@ -100,8 +127,25 @@ class OrderController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $order = Order::with(['user', 'table', 'items.dish'])
-            ->find($id);
+        $order = Order::with([
+            'user:id,nickname,avatar_url,equipped_title',
+            'user.memberPoints',
+            'table',
+            'items.dish',
+        ])->find($id);
+
+        // 格式化用户信息，包含段位
+        if ($order && $order->user && $order->user->memberPoints) {
+            $levelModel = \App\Models\PointLevel::where('code', $order->user->memberPoints->level)->first();
+            if ($levelModel) {
+                $order->user->level = [
+                    'code' => $levelModel->code,
+                    'name' => $levelModel->name,
+                    'icon' => $levelModel->icon,
+                    'color' => $levelModel->color,
+                ];
+            }
+        }
 
         if (!$order) {
             return response()->json([

@@ -158,8 +158,12 @@ const loadUserInfo = async () => {
     try {
       const response = await userAuthApi.me();
       if (response && response.code === 200 && response.data) {
-        userInfo.value = response.data;
-        localStorage.setItem('user_info', JSON.stringify(response.data));
+        // 后端返回结构是 {code: 200, message: 'success', data: {user: {...}}}
+        const userData = response.data.user || response.data;
+        if (userData && userData.id) {
+          userInfo.value = userData;
+          localStorage.setItem('user_info', JSON.stringify(userData));
+        }
       }
     } catch (error) {
       // 静默失败，不影响页面显示

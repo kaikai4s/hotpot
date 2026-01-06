@@ -33,6 +33,12 @@ export default defineConfig({
         // 如果前后端分离部署，需要配置这个
         // rewrite: (path) => path.replace(/^\/api/, ''),
       },
+      // 【修复】添加/storage代理，让前端可以访问Laravel存储的文件
+      '/storage': {
+        target: process.env.VITE_API_TARGET || 'http://localhost:8000',
+        changeOrigin: true,
+        // 不需要rewrite，直接转发到后端的/storage路径
+      },
     },
   },
 });

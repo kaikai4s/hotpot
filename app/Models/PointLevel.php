@@ -12,6 +12,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 
 class PointLevel extends Model
 {
@@ -82,13 +83,20 @@ class PointLevel extends Model
 
     /**
      * 获取所有启用的段位，按排序和积分要求排序
+     * 使用缓存提高性能，避免重复查询
      */
     public static function getActiveLevels()
     {
-        return static::where('is_active', true)
-            ->orderBy('sort_order', 'asc')
-            ->orderBy('min_points', 'asc')
-            ->get();
+        return Cache::remember(
+            'point_levels_active',
+            3600, // 缓存1小时
+            function () {
+                return static::where('is_active', true)
+                    ->orderBy('sort_order', 'asc')
+                    ->orderBy('min_points', 'asc')
+                    ->get();
+            }
+        );
     }
 
     /**
@@ -97,15 +105,21 @@ class PointLevel extends Model
      * 重要：段位判断基于总积分（total_points），而不是可用积分（available_points）
      * 总积分是用户累计获得的所有积分，不会因为积分兑换、过期而减少
      * 可用积分会因兑换、过期等原因减少，但不影响段位判断
+     * 
+     * 使用缓存的段位列表来提高性能，避免重复查询
      *
      * @param int $totalPoints 总积分（累计获得的所有积分）
      * @return PointLevel|null 对应的段位，如果没有匹配的段位则返回null
      */
     public static function getLevelByPoints(int $totalPoints): ?self
     {
-        return static::where('is_active', true)
+        // 使用缓存的段位列表，避免重复查询
+        $activeLevels = static::getActiveLevels();
+        
+        // 从缓存的段位列表中找到匹配的段位
+        return $activeLevels
             ->where('min_points', '<=', $totalPoints)
-            ->orderBy('min_points', 'desc')
+            ->sortByDesc('min_points')
             ->first();
     }
 }

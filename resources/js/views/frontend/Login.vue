@@ -10,6 +10,162 @@
       </div>
 
       <el-tabs v-model="activeTab" class="mb-6">
+        <el-tab-pane label="账户登录" name="account">
+          <el-form
+            ref="accountFormRef"
+            :model="accountForm"
+            :rules="accountFormRules"
+            label-width="0"
+          >
+            <el-form-item prop="account">
+              <el-input
+                v-model="accountForm.account"
+                placeholder="请输入账户名（昵称或手机号）"
+                size="large"
+                clearable
+              >
+                <template #prefix>
+                  <span class="text-lg">👤</span>
+                </template>
+              </el-input>
+            </el-form-item>
+            
+            <el-form-item prop="password">
+              <el-input
+                v-model="accountForm.password"
+                type="password"
+                placeholder="请输入密码"
+                size="large"
+                show-password
+                @keyup.enter="handleAccountLogin"
+              >
+                <template #prefix>
+                  <span class="text-lg">🔒</span>
+                </template>
+              </el-input>
+            </el-form-item>
+            
+            <el-button
+              type="primary"
+              size="large"
+              @click="handleAccountLogin"
+              :loading="accountLoading"
+              class="w-full mb-4"
+            >
+              <span v-if="!accountLoading">账户登录</span>
+              <span v-else>登录中...</span>
+            </el-button>
+          </el-form>
+        </el-tab-pane>
+        
+        <el-tab-pane label="手机号登录" name="phone">
+          <el-form
+            ref="phonePasswordFormRef"
+            :model="phonePasswordForm"
+            :rules="phonePasswordFormRules"
+            label-width="0"
+          >
+            <el-form-item prop="phone">
+              <el-input
+                v-model="phonePasswordForm.phone"
+                placeholder="请输入手机号"
+                size="large"
+                clearable
+                maxlength="11"
+              >
+                <template #prefix>
+                  <span class="text-lg">📱</span>
+                </template>
+              </el-input>
+            </el-form-item>
+            
+            <el-form-item prop="password">
+              <el-input
+                v-model="phonePasswordForm.password"
+                type="password"
+                placeholder="请输入密码"
+                size="large"
+                show-password
+                @keyup.enter="handlePhonePasswordLogin"
+              >
+                <template #prefix>
+                  <span class="text-lg">🔒</span>
+                </template>
+              </el-input>
+            </el-form-item>
+            
+            <el-button
+              type="primary"
+              size="large"
+              @click="handlePhonePasswordLogin"
+              :loading="phonePasswordLoading"
+              class="w-full mb-4"
+            >
+              <span v-if="!phonePasswordLoading">手机号登录</span>
+              <span v-else>登录中...</span>
+            </el-button>
+          </el-form>
+        </el-tab-pane>
+        
+        <el-tab-pane label="验证码登录" name="code">
+          <el-form
+            ref="phoneFormRef"
+            :model="phoneForm"
+            :rules="phoneFormRules"
+            label-width="0"
+          >
+            <el-form-item prop="phone">
+              <el-input
+                v-model="phoneForm.phone"
+                placeholder="请输入手机号"
+                size="large"
+                clearable
+                maxlength="11"
+              >
+                <template #prefix>
+                  <span class="text-lg">📱</span>
+                </template>
+                <template #suffix>
+                  <el-button
+                    :disabled="codeCountdown > 0 || !phoneForm.phone || !/^1[3-9]\d{9}$/.test(phoneForm.phone)"
+                    @click="sendCode"
+                    link
+                    type="primary"
+                    size="small"
+                  >
+                    {{ codeCountdown > 0 ? `${codeCountdown}秒后重试` : '发送验证码' }}
+                  </el-button>
+                </template>
+              </el-input>
+            </el-form-item>
+            
+            <el-form-item prop="code">
+              <el-input
+                v-model="phoneForm.code"
+                placeholder="请输入6位验证码"
+                size="large"
+                maxlength="6"
+                @keyup.enter="handlePhoneCodeLogin"
+              >
+                <template #prefix>
+                  <span class="text-lg">🔐</span>
+                </template>
+              </el-input>
+            </el-form-item>
+            
+            <el-button
+              type="primary"
+              size="large"
+              @click="handlePhoneCodeLogin"
+              :loading="phoneLoading"
+              class="w-full"
+            >
+              <span v-if="!phoneLoading">验证码登录</span>
+              <span v-else>登录中...</span>
+            </el-button>
+          </el-form>
+        </el-tab-pane>
+        
         <el-tab-pane label="微信登录" name="wechat">
           <div class="text-center py-8">
             <div class="mb-6">
@@ -45,55 +201,7 @@
                 <span v-else>正在登录...</span>
               </el-button>
             </div>
-            <p class="text-sm text-gray-500">或使用手机号登录</p>
           </div>
-        </el-tab-pane>
-        <el-tab-pane label="手机号登录" name="phone">
-          <el-form
-            ref="phoneFormRef"
-            :model="phoneForm"
-            :rules="phoneFormRules"
-            @submit.prevent="handlePhoneLogin"
-          >
-            <el-form-item prop="phone">
-              <el-input
-                v-model="phoneForm.phone"
-                placeholder="请输入手机号"
-                size="large"
-                prefix-icon="Phone"
-                clearable
-              />
-            </el-form-item>
-            <el-form-item prop="code">
-              <div class="flex gap-2">
-                <el-input
-                  v-model="phoneForm.code"
-                  placeholder="请输入验证码"
-                  size="large"
-                  prefix-icon="Message"
-                  clearable
-                />
-                <el-button
-                  size="large"
-                  :disabled="codeCountdown > 0"
-                  @click="sendCode"
-                >
-                  {{ codeCountdown > 0 ? `${codeCountdown}秒` : '获取验证码' }}
-                </el-button>
-              </div>
-            </el-form-item>
-            <el-form-item>
-              <el-button
-                type="primary"
-                size="large"
-                class="w-full"
-                :loading="phoneLoading"
-                @click="handlePhoneLogin"
-              >
-                登录
-              </el-button>
-            </el-form-item>
-          </el-form>
         </el-tab-pane>
       </el-tabs>
 
@@ -113,15 +221,30 @@ import { userAuthApi } from '../../api/auth';
 const router = useRouter();
 const route = useRoute();
 const phoneFormRef = ref<FormInstance | null>(null);
-const activeTab = ref('wechat');
+const accountFormRef = ref<FormInstance | null>(null);
+const phonePasswordFormRef = ref<FormInstance | null>(null);
+const activeTab = ref('account');
 const wechatLoading = ref(false);
 const phoneLoading = ref(false);
+const accountLoading = ref(false);
+const phonePasswordLoading = ref(false);
 const codeCountdown = ref(0);
 
 const phoneForm = ref({
   phone: '',
   code: '',
 });
+
+const accountForm = ref({
+  account: '',
+  password: '',
+});
+
+const phonePasswordForm = ref({
+  phone: '',
+  password: '',
+});
+
 const inviteCode = ref('');
 
 const phoneFormRules: FormRules = {
@@ -132,6 +255,28 @@ const phoneFormRules: FormRules = {
   code: [
     { required: true, message: '请输入验证码', trigger: 'blur' },
     { pattern: /^\d{6}$/, message: '请输入6位验证码', trigger: 'blur' },
+  ],
+};
+
+const accountFormRules: FormRules = {
+  account: [
+    { required: true, message: '请输入账户名', trigger: 'blur' },
+    { max: 64, message: '账户名长度不能超过64个字符', trigger: 'blur' },
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' },
+  ],
+};
+
+const phonePasswordFormRules: FormRules = {
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' },
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' },
   ],
 };
 
@@ -261,10 +406,76 @@ onMounted(async () => {
   }
 });
 
+// 账户名+密码登录
+const handleAccountLogin = async () => {
+  if (!accountFormRef.value) return;
+  
+  await accountFormRef.value.validate(async (valid) => {
+    if (!valid) return;
+    
+    accountLoading.value = true;
+    try {
+      const response = await userAuthApi.accountPasswordLogin({
+        account: accountForm.value.account,
+        password: accountForm.value.password,
+      });
+      
+      if (response && response.code === 200 && response.data && response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user_info', JSON.stringify(response.data.user));
+        ElMessage.success('登录成功');
+        const redirect = (route.query.redirect as string) || '/';
+        router.push(redirect);
+      } else {
+        ElMessage.error(response?.message || '登录失败，请重试');
+      }
+    } catch (error: any) {
+      console.error('账户登录失败:', error);
+      const message = error.response?.data?.message || error.message || '登录失败，请重试';
+      ElMessage.error(message);
+    } finally {
+      accountLoading.value = false;
+    }
+  });
+};
+
+// 手机号+密码登录
+const handlePhonePasswordLogin = async () => {
+  if (!phonePasswordFormRef.value) return;
+  
+  await phonePasswordFormRef.value.validate(async (valid) => {
+    if (!valid) return;
+    
+    phonePasswordLoading.value = true;
+    try {
+      const response = await userAuthApi.phonePasswordLogin({
+        phone: phonePasswordForm.value.phone,
+        password: phonePasswordForm.value.password,
+      });
+      
+      if (response && response.code === 200 && response.data && response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user_info', JSON.stringify(response.data.user));
+        ElMessage.success('登录成功');
+        const redirect = (route.query.redirect as string) || '/';
+        router.push(redirect);
+      } else {
+        ElMessage.error(response?.message || '登录失败，请重试');
+      }
+    } catch (error: any) {
+      console.error('手机号密码登录失败:', error);
+      const message = error.response?.data?.message || error.message || '登录失败，请重试';
+      ElMessage.error(message);
+    } finally {
+      phonePasswordLoading.value = false;
+    }
+  });
+};
+
 // 发送验证码
 const sendCode = async () => {
   if (!phoneForm.value.phone) {
-    ElMessage.warning('请先输入手机号');
+    ElMessage.warning('请输入手机号');
     return;
   }
   
@@ -274,26 +485,34 @@ const sendCode = async () => {
   }
   
   try {
-    // TODO: 调用发送验证码API
-    // await userAuthApi.sendCode(phoneForm.value.phone);
-    ElMessage.success('验证码已发送');
+    const response = await userAuthApi.sendPhoneCode({
+      phone: phoneForm.value.phone,
+      type: 'login',
+    });
     
-    // 开始倒计时
-    codeCountdown.value = 60;
-    const timer = setInterval(() => {
-      codeCountdown.value--;
-      if (codeCountdown.value <= 0) {
-        clearInterval(timer);
-      }
-    }, 1000);
+    if (response && response.code === 200) {
+      ElMessage.success('验证码已发送' + (response.data?.code ? `，验证码：${response.data.code}` : ''));
+      
+      // 开始倒计时
+      codeCountdown.value = 60;
+      const timer = setInterval(() => {
+        codeCountdown.value--;
+        if (codeCountdown.value <= 0) {
+          clearInterval(timer);
+        }
+      }, 1000);
+    } else {
+      ElMessage.error(response?.message || '发送验证码失败');
+    }
   } catch (error: any) {
     console.error('发送验证码失败:', error);
-    ElMessage.error('发送验证码失败，请重试');
+    const message = error.response?.data?.message || error.message || '发送验证码失败，请重试';
+    ElMessage.error(message);
   }
 };
 
-// 手机号登录
-const handlePhoneLogin = async () => {
+// 手机号+验证码登录
+const handlePhoneCodeLogin = async () => {
   if (!phoneFormRef.value) return;
   
   await phoneFormRef.value.validate(async (valid) => {
@@ -301,22 +520,22 @@ const handlePhoneLogin = async () => {
     
     phoneLoading.value = true;
     try {
-      // TODO: 调用手机号登录API
-      // const response = await userAuthApi.phoneLogin(phoneForm.value.phone, phoneForm.value.code);
+      const response = await userAuthApi.phoneCodeLogin({
+        phone: phoneForm.value.phone,
+        code: phoneForm.value.code,
+      });
       
-      // 临时模拟登录成功
-      ElMessage.info('手机号登录功能开发中，请使用微信登录');
-      
-      // 实际代码应该是：
-      // if (response && response.code === 200 && response.data && response.data.token) {
-      //   localStorage.setItem('token', response.data.token);
-      //   localStorage.setItem('user_info', JSON.stringify(response.data.user));
-      //   ElMessage.success('登录成功');
-      //   const redirect = (route.query.redirect as string) || '/';
-      //   router.push(redirect);
-      // }
+      if (response && response.code === 200 && response.data && response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user_info', JSON.stringify(response.data.user));
+        ElMessage.success('登录成功');
+        const redirect = (route.query.redirect as string) || '/';
+        router.push(redirect);
+      } else {
+        ElMessage.error(response?.message || '登录失败，请重试');
+      }
     } catch (error: any) {
-      console.error('手机号登录失败:', error);
+      console.error('验证码登录失败:', error);
       const message = error.response?.data?.message || error.message || '登录失败，请重试';
       ElMessage.error(message);
     } finally {

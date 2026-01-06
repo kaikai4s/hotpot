@@ -62,6 +62,8 @@ class CheckinController extends Controller
      */
     public function stat(): JsonResponse
     {
+        $startTime = microtime(true);
+        
         $user = Auth::user();
         if (!$user) {
             return response()->json([
@@ -70,7 +72,18 @@ class CheckinController extends Controller
             ], 401);
         }
 
+        \Illuminate\Support\Facades\Log::info('【签到API-开始】', [
+            'user_id' => $user->id,
+            'user_nickname' => $user->nickname,
+        ]);
+
         $stat = $this->checkinService->getCheckinStat($user);
+        
+        $apiTime = microtime(true) - $startTime;
+        \Illuminate\Support\Facades\Log::info('【签到API-完成】', [
+            'user_id' => $user->id,
+            'api_time' => round($apiTime, 3),
+        ]);
 
         return response()->json([
             'code' => 200,

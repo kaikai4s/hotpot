@@ -26,7 +26,12 @@ class ReservationController extends Controller
             'page_size' => 'nullable|integer|min:1|max:100',
         ]);
 
-        $query = Reservation::with(['user', 'table', 'order']);
+        $query = Reservation::with([
+            'user:id,nickname,avatar_url,equipped_title',
+            'user.memberPoints',
+            'table',
+            'order',
+        ]);
 
         if ($request->filled('status')) {
             $query->where('status', $request->input('status'));
@@ -40,13 +45,35 @@ class ReservationController extends Controller
         $pageSize = $request->input('page_size', 20);
         $reservations = $query->orderBy('created_at', 'desc')->paginate($pageSize, ['*'], 'page', $page);
 
+        // 格式化预约数据，确保用户信息包含称号和段位
+        $formattedReservations = $reservations->items();
+        foreach ($formattedReservations as $reservation) {
+            if ($reservation->user) {
+                if (!$reservation->user->relationLoaded('memberPoints')) {
+                    $reservation->user->load('memberPoints');
+                }
+                // 添加段位详细信息（包含颜色）
+                if ($reservation->user->memberPoints) {
+                    $levelModel = \App\Models\PointLevel::where('code', $reservation->user->memberPoints->level)->first();
+                    if ($levelModel) {
+                        $reservation->user->level = [
+                            'code' => $levelModel->code,
+                            'name' => $levelModel->name,
+                            'icon' => $levelModel->icon,
+                            'color' => $levelModel->color,
+                        ];
+                    }
+                }
+            }
+        }
+
         // 统计未查看预约数量
         $unviewedCount = Reservation::where('is_viewed', false)->count();
 
         return response()->json([
             'code' => 200,
             'data' => [
-                'reservations' => $reservations->items(),
+                'reservations' => $formattedReservations,
                 'pagination' => [
                     'current_page' => $reservations->currentPage(),
                     'total_pages' => $reservations->lastPage(),
@@ -64,8 +91,25 @@ class ReservationController extends Controller
     public function show(int $reservationId): JsonResponse
     {
         try {
-            $reservation = Reservation::with(['user', 'table', 'order'])
-                ->findOrFail($reservationId);
+            $reservation = Reservation::with([
+                'user:id,nickname,avatar_url,equipped_title',
+                'user.memberPoints',
+                'table',
+                'order',
+            ])->findOrFail($reservationId);
+
+            // 格式化用户信息，包含段位
+            if ($reservation->user && $reservation->user->memberPoints) {
+                $levelModel = \App\Models\PointLevel::where('code', $reservation->user->memberPoints->level)->first();
+                if ($levelModel) {
+                    $reservation->user->level = [
+                        'code' => $levelModel->code,
+                        'name' => $levelModel->name,
+                        'icon' => $levelModel->icon,
+                        'color' => $levelModel->color,
+                    ];
+                }
+            }
 
             // 标记为已查看
             if (!$reservation->is_viewed) {

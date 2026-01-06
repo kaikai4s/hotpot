@@ -109,13 +109,29 @@
       >
         <el-table-column type="selection" width="55" />
         <el-table-column prop="queue_number" label="排队号" width="120" />
-        <el-table-column prop="user.nickname" label="用户" width="120">
+        <el-table-column prop="user.nickname" label="用户" width="220">
           <template #default="{ row }">
             <div class="flex items-center">
-              <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
+              <el-avatar 
+                v-if="row.user?.avatar_url" 
+                :src="row.user.avatar_url" 
+                :size="32" 
+                class="mr-2"
+              />
+              <div v-else class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
                 <span class="text-blue-600 text-xs font-semibold">{{ row.user?.nickname?.charAt(0) || 'U' }}</span>
               </div>
-              <span>{{ row.user?.nickname || '未知用户' }}</span>
+              <div class="flex-1 min-w-0">
+                <div class="font-medium truncate">
+                  <span v-if="row.user?.equipped_title" class="text-yellow-600 font-bold mr-1">[{{ row.user.equipped_title }}]</span>
+                  {{ row.user?.nickname || '未知用户' }}
+                  <span
+                    v-if="row.user?.level"
+                    class="ml-1 text-xs font-bold"
+                    :style="row.user.level.color ? { color: row.user.level.color } : { color: '#9333ea' }"
+                  >[{{ row.user.level.name }}]</span>
+                </div>
+              </div>
             </div>
           </template>
         </el-table-column>

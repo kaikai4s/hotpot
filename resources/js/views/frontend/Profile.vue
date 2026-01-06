@@ -5,9 +5,15 @@
         <!-- 用户信息卡片 -->
         <div class="bg-white rounded-2xl shadow-xl p-8 mb-8">
           <div class="flex items-center space-x-6">
-            <div class="w-24 h-24 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center">
-              <img v-if="userInfo?.avatar_url" :src="userInfo.avatar_url" alt="头像" class="w-full h-full rounded-full object-cover" />
-              <span v-else class="text-4xl text-white font-bold">{{ userInfo?.nickname?.charAt(0) || 'U' }}</span>
+            <div class="relative">
+              <div class="w-24 h-24 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center">
+                <img v-if="userInfo?.avatar_url" :src="userInfo.avatar_url" alt="头像" class="w-full h-full rounded-full object-cover" />
+                <span v-else class="text-4xl text-white font-bold">{{ userInfo?.nickname?.charAt(0) || 'U' }}</span>
+              </div>
+              <!-- 性别图标显示在头像右下角 -->
+              <div v-if="userInfo?.gender !== null && userInfo?.gender !== undefined" class="absolute -bottom-1 -right-1 bg-white rounded-full p-1 shadow-md">
+                <span class="text-2xl">{{ getGenderIcon(userInfo.gender) }}</span>
+              </div>
             </div>
             <div class="flex-1">
               <h2 class="text-3xl font-bold text-gray-900 mb-2">
@@ -396,6 +402,141 @@
           </div>
         </div>
       </div>
+
+      <!-- 编辑资料对话框 -->
+      <el-dialog
+        v-model="editDialogVisible"
+        title="编辑资料"
+        width="600px"
+        :close-on-click-modal="false"
+      >
+        <el-form
+          ref="editFormRef"
+          :model="editForm"
+          label-width="100px"
+          label-position="left"
+        >
+          <el-form-item label="昵称" prop="nickname">
+            <el-input v-model="editForm.nickname" placeholder="请输入昵称" maxlength="64" />
+          </el-form-item>
+          
+          <el-form-item label="头像" prop="avatar_url">
+            <div class="flex items-center gap-4">
+              <el-upload
+                class="avatar-uploader"
+                :action="''"
+                :show-file-list="false"
+                :before-upload="beforeAvatarUpload"
+                :http-request="handleAvatarUpload"
+                accept="image/*"
+              >
+                <img 
+                  v-if="editForm.avatar_url && editForm.avatar_url.trim()" 
+                  :src="editForm.avatar_url" 
+                  class="avatar"
+                  @error="handleImageError"
+                  @load="handleImageLoad"
+                  :key="editForm.avatar_url"
+                />
+                <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+              </el-upload>
+              <div class="flex-1">
+                <el-input 
+                  v-model="editForm.avatar_url" 
+                  placeholder="或输入头像URL" 
+                  class="mb-2"
+                />
+                <p class="text-xs text-gray-500">支持上传图片或输入图片URL</p>
+              </div>
+            </div>
+          </el-form-item>
+          
+          <el-form-item label="性别" prop="gender">
+            <el-radio-group v-model="editForm.gender">
+              <el-radio :label="0">未知</el-radio>
+              <el-radio :label="1">男</el-radio>
+              <el-radio :label="2">女</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          
+          <el-form-item label="手机号">
+            <div class="flex gap-2">
+              <el-input
+                v-model="editForm.phone"
+                placeholder="请输入手机号"
+                :disabled="!isChangingPhone && !!userInfo?.phone"
+                maxlength="11"
+              />
+              <el-button
+                v-if="isChangingPhone || !userInfo?.phone"
+                @click="sendPhoneCode"
+                :disabled="phoneCodeCountdown > 0 || !editForm.phone || !/^1[3-9]\d{9}$/.test(editForm.phone)"
+              >
+                {{ phoneCodeCountdown > 0 ? `${phoneCodeCountdown}秒后重试` : '发送验证码' }}
+              </el-button>
+              <el-button
+                v-else
+                @click="isChangingPhone = true"
+              >
+                修改
+              </el-button>
+            </div>
+            <el-input
+              v-if="isChangingPhone || !userInfo?.phone"
+              v-model="editForm.phone_verification_code"
+              placeholder="请输入验证码"
+              class="mt-2"
+              maxlength="6"
+            />
+          </el-form-item>
+          
+          <el-form-item label="密码">
+            <div class="flex gap-2">
+              <el-button
+                v-if="!isChangingPassword"
+                @click="isChangingPassword = true"
+              >
+                {{ userInfo?.has_password ? '修改密码' : '设置密码' }}
+              </el-button>
+              <el-button
+                v-else
+                @click="isChangingPassword = false; editForm.password = ''; editForm.password_confirmation = ''; editForm.current_password = '';"
+              >
+                取消{{ userInfo?.has_password ? '修改' : '设置' }}
+              </el-button>
+            </div>
+            <template v-if="isChangingPassword">
+              <el-input
+                v-if="userInfo?.has_password"
+                v-model="editForm.current_password"
+                type="password"
+                placeholder="请输入当前密码"
+                class="mt-2"
+                show-password
+              />
+              <el-input
+                v-model="editForm.password"
+                type="password"
+                :placeholder="userInfo?.has_password ? '请输入新密码（至少6位）' : '请输入密码（至少6位）'"
+                class="mt-2"
+                show-password
+              />
+              <el-input
+                v-model="editForm.password_confirmation"
+                type="password"
+                placeholder="请确认密码"
+                class="mt-2"
+                show-password
+              />
+            </template>
+          </el-form-item>
+        </el-form>
+        
+        <template #footer>
+          <el-button @click="editDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleSaveProfile">保存</el-button>
+        </template>
+      </el-dialog>
     </div>
   </FrontendLayout>
 </template>
@@ -404,12 +545,14 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Refresh, ChatDotRound, Check } from '@element-plus/icons-vue';
+import { Refresh, ChatDotRound, Check, Plus } from '@element-plus/icons-vue';
 import FrontendLayout from '../../components/frontend/FrontendLayout.vue';
 import { userAuthApi } from '../../api/auth';
 import { frontendPointsApi, type FrontendMemberPoint, type FrontendPointTransaction } from '../../api/frontend-points';
 import { orderApi } from '../../api/order';
 import { couponApi } from '../../api/frontend-coupon';
+import { updateProfile } from '../../api/user';
+import { uploadImage } from '../../api/upload';
 import type { Reservation, Review, UserInfo } from '../../types';
 
 const route = useRoute();
@@ -721,30 +864,35 @@ const fetchPoints = async (showLoading = false) => {
     
     const response = await frontendPointsApi.getPoints();
     console.log('Profile页面 - 积分API响应:', response);
-    console.log('Profile页面 - 响应数据详情:', JSON.stringify(response.data, null, 2));
     
-    if (response.code === 200 && response.data) {
-      const oldPoints = { ...points.value };
-      points.value = response.data;
-      console.log('Profile页面 - 积分数据已更新');
-      console.log('Profile页面 - 旧数据:', oldPoints);
-      console.log('Profile页面 - 新数据:', points.value);
-      
-      // 如果数据异常，显示警告
-      if (points.value.total_points > 10000) {
-        console.warn('警告：积分数据异常，总积分超过10000:', points.value.total_points);
-      }
+    if (response && response.code === 200 && response.data) {
+      points.value = {
+        total_points: response.data.total_points ?? 0,
+        available_points: response.data.available_points ?? 0,
+        frozen_points: response.data.frozen_points ?? 0,
+        level: response.data.level ?? 'bronze',
+        level_text: response.data.level_text ?? '',
+        level_info: response.data.level_info ?? null,
+        next_level_info: response.data.next_level_info ?? null,
+        points_to_next_level: response.data.points_to_next_level ?? 0,
+        expiring_points: response.data.expiring_points ?? [],
+        total_expiring: response.data.total_expiring ?? 0,
+        rules_info: response.data.rules_info ?? null,
+      };
+      console.log('Profile页面 - 积分数据已更新:', points.value);
     } else {
       console.warn('Profile页面 - 积分API返回异常:', response);
+      ElMessage.warning('获取积分信息失败，请稍后重试');
     }
   } catch (error: any) {
     console.error('Profile页面 - 获取积分信息失败:', error);
     console.error('Profile页面 - 错误详情:', error.response?.data || error.message);
     if (error.response?.status !== 401) {
       // 401错误不显示提示，因为会跳转登录页
-      ElMessage.error('获取积分信息失败');
+      ElMessage.error('获取积分信息失败: ' + (error.response?.data?.message || error.message || '网络错误'));
     }
   } finally {
+    // 确保无论成功或失败都重置加载状态
     if (showLoading) {
       pointsLoading.value = false;
     }
@@ -758,18 +906,21 @@ const fetchPointTransactions = async (showLoading = false) => {
   try {
     const response = await frontendPointsApi.getTransactions({ per_page: 20 });
     console.log('Profile页面 - 积分明细API响应:', response);
-    if (response.code === 200 && response.data) {
-      pointTransactions.value = response.data.transactions;
+    if (response && response.code === 200 && response.data) {
+      pointTransactions.value = response.data.transactions || [];
       console.log('Profile页面 - 积分明细数据已更新，共', pointTransactions.value.length, '条');
     } else {
       console.warn('Profile页面 - 积分明细API返回异常:', response);
+      pointTransactions.value = [];
     }
   } catch (error: any) {
     console.error('Profile页面 - 获取积分明细失败:', error);
+    pointTransactions.value = [];
     if (error.response?.status !== 401) {
-      ElMessage.error('获取积分明细失败');
+      ElMessage.error('获取积分明细失败: ' + (error.response?.data?.message || error.message || '网络错误'));
     }
   } finally {
+    // 确保无论成功或失败都重置加载状态
     if (showLoading) {
       pointsLoading.value = false;
     }
@@ -806,6 +957,21 @@ const formatDecimal = (value: number): string => {
   return value.toFixed(2);
 };
 
+// 获取性别图标（可爱的符号）
+const getGenderIcon = (gender: number | null | undefined): string => {
+  if (gender === null || gender === undefined) {
+    return '🤔'; // 未知性别 - 更可爱的思考表情
+  }
+  switch (gender) {
+    case 1:
+      return '🤵'; // 男性 - 更可爱的绅士图标
+    case 2:
+      return '👸'; // 女性 - 更可爱的公主图标
+    default:
+      return '🤔'; // 未知 - 更可爱的思考表情
+  }
+};
+
 const fetchUserInfo = async () => {
   try {
     // 先尝试从缓存加载
@@ -839,8 +1005,256 @@ const fetchUserInfo = async () => {
   }
 };
 
+// 编辑资料对话框
+const editDialogVisible = ref(false);
+const editForm = ref({
+  nickname: '',
+  avatar_url: '',
+  phone: '',
+  phone_verification_code: '',
+  gender: null as 0 | 1 | 2 | null,
+  password: '',
+  password_confirmation: '',
+  current_password: '',
+});
+const editFormRef = ref();
+const phoneCodeCountdown = ref(0);
+const isChangingPhone = ref(false);
+const isChangingPassword = ref(false);
+
 const handleEditProfile = () => {
-  ElMessage.info('编辑资料功能开发中，敬请期待');
+  editForm.value = {
+    nickname: userInfo.value?.nickname || '',
+    avatar_url: userInfo.value?.avatar_url || '',
+    phone: userInfo.value?.phone || '',
+    phone_verification_code: '',
+    gender: (userInfo.value?.gender as 0 | 1 | 2) || null,
+    password: '',
+    password_confirmation: '',
+    current_password: '',
+  };
+  isChangingPhone.value = false;
+  isChangingPassword.value = false;
+  editDialogVisible.value = true;
+};
+
+const sendPhoneCode = async () => {
+  if (!editForm.value.phone || !/^1[3-9]\d{9}$/.test(editForm.value.phone)) {
+    ElMessage.error('请输入正确的手机号');
+    return;
+  }
+
+  try {
+    const response = await userAuthApi.sendPhoneCode({
+      phone: editForm.value.phone,
+      type: 'register',
+    });
+    
+    if (response.code === 200) {
+      ElMessage.success('验证码已发送' + (response.data?.code ? `，验证码：${response.data.code}` : ''));
+      
+      // 开始倒计时
+      phoneCodeCountdown.value = 60;
+      const timer = setInterval(() => {
+        phoneCodeCountdown.value--;
+        if (phoneCodeCountdown.value <= 0) {
+          clearInterval(timer);
+        }
+      }, 1000);
+    } else {
+      ElMessage.error(response.message || '发送验证码失败');
+    }
+  } catch (error: any) {
+    console.error('发送验证码失败:', error);
+    ElMessage.error(error.response?.data?.message || error.message || '发送验证码失败');
+  }
+};
+
+const handleSaveProfile = async () => {
+  if (!editFormRef.value) return;
+  
+  await editFormRef.value.validate(async (valid: boolean) => {
+    if (!valid) return;
+
+    try {
+      const updateParams: any = {};
+      
+      // 更新昵称
+      if (editForm.value.nickname !== userInfo.value?.nickname) {
+        updateParams.nickname = editForm.value.nickname;
+      }
+      
+      // 更新头像
+      if (editForm.value.avatar_url !== userInfo.value?.avatar_url) {
+        updateParams.avatar_url = editForm.value.avatar_url;
+      }
+      
+      // 更新性别
+      if (editForm.value.gender !== userInfo.value?.gender) {
+        updateParams.gender = editForm.value.gender;
+      }
+      
+      // 更新手机号（包括首次绑定和修改）
+      // 条件：1) 正在修改手机号 或 2) 用户没有手机号但输入了新手机号
+      const hasPhoneChanged = editForm.value.phone && editForm.value.phone !== (userInfo.value?.phone || '');
+      if ((isChangingPhone.value || !userInfo.value?.phone) && hasPhoneChanged) {
+        if (!editForm.value.phone_verification_code) {
+          ElMessage.error('请输入验证码');
+          return;
+        }
+        updateParams.phone = editForm.value.phone;
+        updateParams.phone_verification_code = editForm.value.phone_verification_code;
+      }
+      
+      // 更新密码
+      if (isChangingPassword.value && editForm.value.password) {
+        // 如果用户已经设置过密码，需要当前密码；如果没有设置过密码，可以直接设置
+        if (userInfo.value?.has_password && !editForm.value.current_password) {
+          ElMessage.error('请输入当前密码');
+          return;
+        }
+        updateParams.password = editForm.value.password;
+        updateParams.password_confirmation = editForm.value.password_confirmation;
+        // 只有在用户已设置密码时才需要当前密码
+        if (userInfo.value?.has_password) {
+          updateParams.current_password = editForm.value.current_password;
+        }
+      }
+      
+      if (Object.keys(updateParams).length === 0) {
+        ElMessage.info('没有需要更新的内容');
+        return;
+      }
+      
+      const updatedUser = await updateProfile(updateParams);
+      
+      // 更新本地用户信息（包括has_password字段）
+      userInfo.value = {
+        ...userInfo.value!,
+        ...updatedUser,
+        has_password: updatedUser.has_password ?? userInfo.value?.has_password,
+      };
+      localStorage.setItem('user_info', JSON.stringify(userInfo.value));
+      
+      ElMessage.success('资料更新成功');
+      editDialogVisible.value = false;
+    } catch (error: any) {
+      console.error('更新资料失败:', error);
+      ElMessage.error(error.response?.data?.message || error.message || '更新资料失败');
+    }
+  });
+};
+
+// 头像上传相关
+const beforeAvatarUpload = (file: File) => {
+  const isValidType = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/avif'].includes(file.type);
+  const isLt5M = file.size / 1024 / 1024 < 5;
+
+  if (!isValidType) {
+    ElMessage.error('只能上传图片格式文件（jpg、png、gif、webp、avif）');
+    return false;
+  }
+  if (!isLt5M) {
+    ElMessage.error('图片大小不能超过 5MB');
+    return false;
+  }
+  return true;
+};
+
+const handleImageLoad = () => {
+  console.log('图片加载成功:', editForm.value.avatar_url);
+};
+
+const handleImageError = (event: any) => {
+  const failedUrl = editForm.value.avatar_url;
+  console.error('图片加载失败:', failedUrl);
+  
+  // 【修复】如果图片加载失败，尝试使用后端8000端口直接访问
+  // 这样可以绕过可能的代理问题
+  if (failedUrl && failedUrl.startsWith('/storage/')) {
+    const backendUrl = `http://localhost:8000${failedUrl}`;
+    console.log('尝试使用后端URL加载:', backendUrl);
+    
+    // 创建一个新的Image对象测试URL是否可访问
+    const testImg = new Image();
+    testImg.onload = () => {
+      // 如果后端URL可以访问，更新为后端URL
+      editForm.value.avatar_url = backendUrl;
+      console.log('使用后端URL成功加载图片');
+    };
+    testImg.onerror = () => {
+      // 如果后端URL也无法访问，显示警告但不清空URL（让用户看到URL）
+      console.error('后端URL也无法访问:', backendUrl);
+      ElMessage.warning('图片加载失败，请检查URL是否正确或文件是否存在');
+      // 不清空URL，让用户可以手动修改
+    };
+    testImg.src = backendUrl;
+  } else {
+    ElMessage.warning('图片加载失败，请检查URL是否正确');
+  }
+};
+
+const handleAvatarUpload = async (options: any) => {
+  const { file } = options;
+  
+  try {
+    ElMessage.info('正在上传头像...');
+    const result = await uploadImage(file);
+    console.log('上传结果:', result);
+    
+    // 【修复】处理URL格式
+    // 后端返回的是相对路径（如：/storage/uploads/images/xxx.png）
+    // 在开发环境中，优先使用相对路径通过Vite代理访问
+    // 如果代理失败，自动回退到后端8000端口直接访问
+    let avatarUrl = result.url;
+    
+    if (avatarUrl) {
+      // 如果已经是完整URL，检查端口号
+      if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
+        const urlObj = new URL(avatarUrl);
+        // 如果URL端口是8000但前端不是，转换为相对路径使用代理
+        if (urlObj.port === '8000' && window.location.port !== '8000') {
+          avatarUrl = urlObj.pathname + (urlObj.search || '');
+        }
+      } else {
+        // 相对路径，确保以/开头
+        if (!avatarUrl.startsWith('/')) {
+          avatarUrl = '/' + avatarUrl;
+        }
+      }
+    }
+    
+    // 【修复】先设置为相对路径，让Vite代理处理
+    // 如果加载失败，handleImageError会自动尝试后端URL
+    editForm.value.avatar_url = avatarUrl;
+    
+    // 强制触发视图更新
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    console.log('设置头像URL:', avatarUrl);
+    
+    // 【修复】预加载图片，检查是否可以正常访问
+    // 如果相对路径无法加载，立即切换到后端URL
+    const testImg = new Image();
+    testImg.onload = () => {
+      console.log('图片预加载成功，预览应能正常显示');
+    };
+    testImg.onerror = () => {
+      console.warn('图片预加载失败，将尝试后端URL');
+      // 如果相对路径无法加载，尝试使用后端URL
+      if (avatarUrl && avatarUrl.startsWith('/storage/')) {
+        const backendUrl = `http://localhost:8000${avatarUrl}`;
+        editForm.value.avatar_url = backendUrl;
+        console.log('切换到后端URL:', backendUrl);
+      }
+    };
+    testImg.src = avatarUrl;
+    
+    ElMessage.success('头像上传成功');
+  } catch (error: any) {
+    console.error('头像上传失败:', error);
+    ElMessage.error(error.message || '头像上传失败，请重试');
+  }
 };
 
 const handleLogout = async () => {
@@ -896,13 +1310,17 @@ watch(activeTab, async (newTab) => {
   } else if (newTab === 'points') {
     // 切换到积分标签时，刷新积分数据
     console.log('切换到积分标签，刷新积分数据');
+    pointsLoading.value = true; // 统一设置加载状态
     try {
       await Promise.all([
-        fetchPoints(true),
-        fetchPointTransactions(true),
+        fetchPoints(false), // 不单独设置加载状态，统一管理
+        fetchPointTransactions(false), // 不单独设置加载状态，统一管理
       ]);
     } catch (error) {
       console.error('刷新积分数据失败:', error);
+    } finally {
+      // 确保加载状态被重置
+      pointsLoading.value = false;
     }
   } else if (newTab === 'reviews') {
     // 切换到评价标签时，刷新评价数据
@@ -946,4 +1364,42 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+.avatar-uploader {
+  display: inline-block;
+}
+
+.avatar-uploader :deep(.el-upload) {
+  border: 1px dashed var(--el-border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: var(--el-transition-duration-fast);
+}
+
+.avatar-uploader :deep(.el-upload:hover) {
+  border-color: var(--el-color-primary);
+}
+
+.avatar-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+  width: 100px;
+  height: 100px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar {
+  width: 100px;
+  height: 100px;
+  display: block;
+  object-fit: cover;
+  border-radius: 6px;
+}
+</style>
 
