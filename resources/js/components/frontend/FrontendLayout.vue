@@ -73,7 +73,11 @@
                 <span class="text-sm font-medium text-gray-800 hidden md:block">
                   <span v-if="userInfo?.equipped_title" class="text-yellow-600 font-bold">[{{ userInfo.equipped_title }}]</span>
                   {{ userInfo?.nickname || '用户' }}
-                  <span v-if="userInfo?.level" class="text-purple-600 ml-1">[{{ userInfo.level.name }}]</span>
+                  <span
+                    v-if="userInfo?.level"
+                    class="ml-1 font-bold"
+                    :style="userInfo.level.color ? { color: userInfo.level.color } : { color: '#9333ea' }"
+                  >[{{ userInfo.level.name }}]</span>
                 </span>
                 <el-icon class="text-gray-500 ml-2"><ArrowDown /></el-icon>
               </div>

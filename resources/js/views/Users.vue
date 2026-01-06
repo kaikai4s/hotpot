@@ -370,7 +370,10 @@
           <div class="flex items-center gap-6">
             <div class="flex-1">
               <div class="text-lg font-semibold text-gray-700 mb-2">
-                <el-tag type="success" size="large">{{ userDetail.level_info.name }}</el-tag>
+                <el-tag
+                  :style="userDetail.level_info?.color ? { backgroundColor: userDetail.level_info.color, color: '#FFFFFF', borderColor: userDetail.level_info.color } : {}"
+                  size="large"
+                >{{ userDetail.level_info.name }}</el-tag>
                 <span v-if="userDetail.equipped_title" class="ml-2">
                   <el-tag type="warning" size="large">称号：{{ userDetail.equipped_title }}</el-tag>
                 </span>
@@ -461,7 +464,15 @@
                 </el-table-column>
                 <el-table-column label="段位" width="100">
                   <template #default="{ row }">
-                    <el-tag v-if="row.member_points?.level || row.memberPoints?.level" size="small" type="success">
+                    <el-tag
+                      v-if="row.member_points?.level || row.memberPoints?.level"
+                      size="small"
+                      :style="(row.member_points?.level_info?.color || row.memberPoints?.level_info?.color) ? {
+                        backgroundColor: row.member_points?.level_info?.color || row.memberPoints?.level_info?.color,
+                        color: '#FFFFFF',
+                        borderColor: row.member_points?.level_info?.color || row.memberPoints?.level_info?.color
+                      } : {}"
+                    >
                       {{ getLevelName(row.member_points?.level || row.memberPoints?.level) }}
                     </el-tag>
                     <span v-else class="text-gray-400">-</span>

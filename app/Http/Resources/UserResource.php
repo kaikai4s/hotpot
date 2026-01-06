@@ -28,6 +28,8 @@ class UserResource extends JsonResource
                 $level = [
                     'code' => $levelModel->code,
                     'name' => $levelModel->name,
+                    'icon' => $levelModel->icon,
+                    'color' => $levelModel->color,
                 ];
             }
         }

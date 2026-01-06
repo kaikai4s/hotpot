@@ -138,7 +138,11 @@
                   <p class="font-semibold text-gray-900">
                     <span v-if="friend.equipped_title" class="text-yellow-600 font-bold mr-1">[{{ friend.equipped_title }}]</span>
                     {{ friend.nickname }}
-                    <span v-if="friend.level" class="text-purple-600 ml-1 text-sm">[{{ friend.level.name }}]</span>
+                    <span
+                      v-if="friend.level"
+                      class="ml-1 text-sm font-bold"
+                      :style="friend.level.color ? { color: friend.level.color } : { color: '#9333ea' }"
+                    >[{{ friend.level.name }}]</span>
                   </p>
                   <div class="flex items-center gap-4 mt-1">
                     <span

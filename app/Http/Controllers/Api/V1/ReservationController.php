@@ -183,9 +183,11 @@ class ReservationController extends Controller
             ], 201);
         } catch (\Exception $e) {
             $code = $e->getCode() ?: 500;
+            // 生产环境不暴露详细错误信息
+            $message = config('app.debug') ? $e->getMessage() : '操作失败，请稍后重试';
             return response()->json([
                 'code' => $code,
-                'message' => $e->getMessage(),
+                'message' => $message,
             ], $code >= 400 && $code < 600 ? $code : 500);
         }
     }
@@ -193,7 +195,16 @@ class ReservationController extends Controller
     public function confirm(int $reservationId): JsonResponse
     {
         try {
-            $reservation = $this->reservationService->confirmReservation($reservationId);
+            /** @var User $user */
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json([
+                    'code' => 401,
+                    'message' => '未登录',
+                ], 401);
+            }
+
+            $reservation = $this->reservationService->confirmReservation($user, $reservationId);
 
             return response()->json([
                 'code' => 200,
@@ -206,9 +217,10 @@ class ReservationController extends Controller
             ]);
         } catch (\Exception $e) {
             $code = $e->getCode() ?: 500;
+            $message = $e->getCode() === 403 ? $e->getMessage() : (config('app.debug') ? $e->getMessage() : '操作失败');
             return response()->json([
                 'code' => $code,
-                'message' => $e->getMessage(),
+                'message' => $message,
             ], $code >= 400 && $code < 600 ? $code : 500);
         }
     }
@@ -220,7 +232,17 @@ class ReservationController extends Controller
         ]);
 
         try {
+            /** @var User $user */
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json([
+                    'code' => 401,
+                    'message' => '未登录',
+                ], 401);
+            }
+
             $reservation = $this->reservationService->cancelReservation(
+                $user,
                 $reservationId,
                 $request->input('reason')
             );
@@ -236,9 +258,10 @@ class ReservationController extends Controller
             ]);
         } catch (\Exception $e) {
             $code = $e->getCode() ?: 500;
+            $message = $e->getCode() === 403 ? $e->getMessage() : (config('app.debug') ? $e->getMessage() : '操作失败');
             return response()->json([
                 'code' => $code,
-                'message' => $e->getMessage(),
+                'message' => $message,
             ], $code >= 400 && $code < 600 ? $code : 500);
         }
     }
@@ -360,12 +383,16 @@ class ReservationController extends Controller
     public function arrive(int $reservationId): JsonResponse
     {
         try {
+            /** @var User $user */
             $user = Auth::user();
-            $reservation = Reservation::where('id', $reservationId)
-                ->where('user_id', $user->id)
-                ->firstOrFail();
+            if (!$user) {
+                return response()->json([
+                    'code' => 401,
+                    'message' => '未登录',
+                ], 401);
+            }
 
-            $reservation = $this->reservationService->markArrived($reservationId);
+            $reservation = $this->reservationService->markArrived($user, $reservationId);
 
             return response()->json([
                 'code' => 200,
@@ -374,9 +401,10 @@ class ReservationController extends Controller
             ]);
         } catch (\Exception $e) {
             $code = $e->getCode() ?: 500;
+            $message = $e->getCode() === 403 ? $e->getMessage() : (config('app.debug') ? $e->getMessage() : '操作失败');
             return response()->json([
                 'code' => $code,
-                'message' => $e->getMessage(),
+                'message' => $message,
             ], $code >= 400 && $code < 600 ? $code : 500);
         }
     }

@@ -18,6 +18,15 @@ export interface User {
   remark?: string | null;
   created_at: string;
   updated_at: string;
+  member_points?: {
+    level: string;
+    level_info?: {
+      code: string;
+      name: string;
+      icon?: string | null;
+      color?: string | null;
+    };
+  };
   statistics?: {
     total_points: number;
     available_points: number;

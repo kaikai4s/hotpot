@@ -68,9 +68,11 @@ class ReviewController extends Controller
             ], 201);
         } catch (\Exception $e) {
             $code = $e->getCode() ?: 500;
+            // 生产环境不暴露详细错误信息
+            $message = config('app.debug') ? $e->getMessage() : '操作失败，请稍后重试';
             return response()->json([
                 'code' => $code,
-                'message' => $e->getMessage(),
+                'message' => $message,
             ], $code >= 400 && $code < 600 ? $code : 500);
         }
     }
@@ -115,6 +117,18 @@ class ReviewController extends Controller
         foreach ($formattedReviews as $review) {
             if ($review->user) {
                 $review->user->load('memberPoints');
+                // 添加段位详细信息（包含颜色）
+                if ($review->user->memberPoints) {
+                    $levelModel = \App\Models\PointLevel::where('code', $review->user->memberPoints->level)->first();
+                    if ($levelModel) {
+                        $review->user->level = [
+                            'code' => $levelModel->code,
+                            'name' => $levelModel->name,
+                            'icon' => $levelModel->icon,
+                            'color' => $levelModel->color,
+                        ];
+                    }
+                }
             }
         }
 
@@ -190,8 +204,22 @@ class ReviewController extends Controller
         // 格式化评价数据，确保用户信息包含称号和段位
         $formattedReviews = $reviews->items();
         foreach ($formattedReviews as $review) {
-            if ($review->user && !$review->user->relationLoaded('memberPoints')) {
-                $review->user->load('memberPoints');
+            if ($review->user) {
+                if (!$review->user->relationLoaded('memberPoints')) {
+                    $review->user->load('memberPoints');
+                }
+                // 添加段位详细信息（包含颜色）
+                if ($review->user->memberPoints) {
+                    $levelModel = \App\Models\PointLevel::where('code', $review->user->memberPoints->level)->first();
+                    if ($levelModel) {
+                        $review->user->level = [
+                            'code' => $levelModel->code,
+                            'name' => $levelModel->name,
+                            'icon' => $levelModel->icon,
+                            'color' => $levelModel->color,
+                        ];
+                    }
+                }
             }
         }
 
@@ -237,8 +265,22 @@ class ReviewController extends Controller
         // 格式化评价数据，确保用户信息包含称号和段位
         $formattedReviews = $reviews->items();
         foreach ($formattedReviews as $review) {
-            if ($review->user && !$review->user->relationLoaded('memberPoints')) {
-                $review->user->load('memberPoints');
+            if ($review->user) {
+                if (!$review->user->relationLoaded('memberPoints')) {
+                    $review->user->load('memberPoints');
+                }
+                // 添加段位详细信息（包含颜色）
+                if ($review->user->memberPoints) {
+                    $levelModel = \App\Models\PointLevel::where('code', $review->user->memberPoints->level)->first();
+                    if ($levelModel) {
+                        $review->user->level = [
+                            'code' => $levelModel->code,
+                            'name' => $levelModel->name,
+                            'icon' => $levelModel->icon,
+                            'color' => $levelModel->color,
+                        ];
+                    }
+                }
             }
         }
 

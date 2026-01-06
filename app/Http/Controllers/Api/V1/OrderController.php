@@ -193,7 +193,8 @@ class OrderController extends Controller
                         DB::rollBack();
                         return response()->json([
                             'code' => 404,
-                            'message' => "套餐 ID {$item['combo_id']} 不存在",
+                            'message' => '套餐不存在',
+                            'data' => ['combo_id' => $item['combo_id']],
                         ], 404);
                     }
 
@@ -201,7 +202,8 @@ class OrderController extends Controller
                         DB::rollBack();
                         return response()->json([
                             'code' => 400,
-                            'message' => "套餐 {$combo->name} 暂不可用",
+                            'message' => '套餐暂不可用',
+                            'data' => ['combo_name' => $combo->name],
                         ], 400);
                     }
 
@@ -227,7 +229,8 @@ class OrderController extends Controller
                         DB::rollBack();
                         return response()->json([
                             'code' => 404,
-                            'message' => "菜品 ID {$item['dish_id']} 不存在",
+                            'message' => '菜品不存在',
+                            'data' => ['dish_id' => $item['dish_id']],
                         ], 404);
                     }
 
@@ -235,7 +238,8 @@ class OrderController extends Controller
                         DB::rollBack();
                         return response()->json([
                             'code' => 400,
-                            'message' => "菜品 {$dish->name} 暂不可用",
+                            'message' => '菜品暂不可用',
+                            'data' => ['dish_name' => $dish->name],
                         ], 400);
                     }
 
@@ -310,7 +314,8 @@ class OrderController extends Controller
 
             // 如果指定了桌位，检查并锁定桌位
             if ($tableId) {
-                $table = \App\Models\Table::find($tableId);
+                // 使用lockForUpdate()锁定桌位记录，防止并发冲突
+                $table = \App\Models\Table::lockForUpdate()->find($tableId);
                 if (!$table) {
                     LoggerHelper::orderWarning('订单创建失败：桌位不存在', [
                         'user_id' => $user->id,
@@ -370,7 +375,8 @@ class OrderController extends Controller
                             DB::rollBack();
                             return response()->json([
                                 'code' => 400,
-                                'message' => "该桌位正在团队点餐中，请输入正确的团队码：{$table->team_code}",
+                                'message' => '该桌位正在团队点餐中，请输入正确的团队码',
+                                'data' => ['required_team_code' => $table->team_code],
                             ], 400);
                         }
                     }
@@ -392,11 +398,15 @@ class OrderController extends Controller
                     DB::rollBack();
                     return response()->json([
                         'code' => 400,
-                        'message' => "桌位 {$table->name} 当前不可用（状态：{$table->status}）",
+                        'message' => '桌位当前不可用',
+                        'data' => [
+                            'table_name' => $table->name,
+                            'table_status' => $table->status,
+                        ],
                     ], 400);
                 }
 
-                // 更新桌位状态
+                // 更新桌位状态（在事务中，已锁定）
                 if ($isFirstOrder) {
                     // 首次使用：设置为 occupied，记录使用人和时间，生成团队码
                     $teamCode = 'TEAM' . strtoupper(Str::random(6));

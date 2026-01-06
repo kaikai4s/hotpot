@@ -212,6 +212,8 @@ class InvitationService
                     $level = [
                         'code' => $levelModel->code,
                         'name' => $levelModel->name,
+                        'icon' => $levelModel->icon,
+                        'color' => $levelModel->color,
                     ];
                 }
             }

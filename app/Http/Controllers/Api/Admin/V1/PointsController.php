@@ -63,7 +63,11 @@ class PointsController extends Controller
 
         // 排序
         $sortBy = $request->input('sort_by', 'total_points');
-        $sortOrder = $request->input('sort_order', 'desc');
+        // 确保 sort_order 是字符串类型，防止类型错误
+        $sortOrderInput = $request->input('sort_order', 'desc');
+        $sortOrder = strtolower((string) $sortOrderInput);
+        // 白名单验证排序方向，防止SQL注入
+        $sortOrder = in_array($sortOrder, ['asc', 'desc'], true) ? $sortOrder : 'desc';
         
         // 处理排序字段
         $sortFieldMap = [
@@ -74,7 +78,8 @@ class PointsController extends Controller
         ];
         
         $sortField = $sortFieldMap[$sortBy] ?? 'member_points.total_points';
-        $query->orderByRaw("COALESCE({$sortField}, 0) {$sortOrder}")
+        // 使用白名单验证的字段和排序方向，防止SQL注入
+        $query->orderByRaw("COALESCE({$sortField}, 0) " . ($sortOrder === 'asc' ? 'ASC' : 'DESC'))
               ->orderBy('users.id', 'asc');
 
         $perPage = $request->input('per_page', 15);

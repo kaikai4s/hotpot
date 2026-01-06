@@ -145,9 +145,14 @@ class ReservationService
         });
     }
 
-    public function confirmReservation(int $reservationId): Reservation
+    public function confirmReservation(User $user, int $reservationId): Reservation
     {
         $reservation = Reservation::findOrFail($reservationId);
+
+        // 权限检查：只能确认自己的预约
+        if ($reservation->user_id !== $user->id) {
+            throw new \Exception('无权操作此预约', 403);
+        }
 
         if ($reservation->status !== 'pending') {
             throw new \Exception('预约状态不允许确认', 409);
@@ -165,9 +170,14 @@ class ReservationService
         return $reservation;
     }
 
-    public function cancelReservation(int $reservationId, ?string $reason = null): Reservation
+    public function cancelReservation(User $user, int $reservationId, ?string $reason = null): Reservation
     {
         $reservation = Reservation::with('table')->findOrFail($reservationId);
+
+        // 权限检查：只能取消自己的预约
+        if ($reservation->user_id !== $user->id) {
+            throw new \Exception('无权操作此预约', 403);
+        }
 
         if (!in_array($reservation->status, ['pending', 'confirmed'])) {
             throw new \Exception('预约状态不允许取消', 409);
@@ -227,9 +237,14 @@ class ReservationService
     /**
      * 确认到达
      */
-    public function markArrived(int $reservationId): Reservation
+    public function markArrived(User $user, int $reservationId): Reservation
     {
         $reservation = Reservation::findOrFail($reservationId);
+
+        // 权限检查：只能标记自己的预约为到达
+        if ($reservation->user_id !== $user->id) {
+            throw new \Exception('无权操作此预约', 403);
+        }
 
         if ($reservation->status !== 'confirmed') {
             throw new \Exception('只有已确认的预约才能标记为到达', 409);

@@ -242,6 +242,8 @@ class AuthController extends Controller
                     'level' => $level ? [
                         'code' => $level->code,
                         'name' => $level->name,
+                        'icon' => $level->icon,
+                        'color' => $level->color,
                     ] : null,
                 ],
             ],

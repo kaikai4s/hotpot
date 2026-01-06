@@ -15,6 +15,8 @@ export interface UserInfo {
   level?: {
     code: string;
     name: string;
+    icon?: string | null;
+    color?: string | null;
   } | null;
 }
 

@@ -13,7 +13,11 @@
               <h2 class="text-3xl font-bold text-gray-900 mb-2">
                 <span v-if="userInfo?.equipped_title" class="text-yellow-600 font-bold mr-2">[{{ userInfo.equipped_title }}]</span>
                 {{ userInfo?.nickname || '用户' }}
-                <span v-if="userInfo?.level" class="text-purple-600 ml-2 text-2xl">[{{ userInfo.level.name }}]</span>
+                <span
+                  v-if="userInfo?.level"
+                  class="ml-2 text-2xl font-bold"
+                  :style="userInfo.level.color ? { color: userInfo.level.color } : { color: '#9333ea' }"
+                >[{{ userInfo.level.name }}]</span>
               </h2>
               <p v-if="userInfo?.phone" class="text-gray-600">手机号：{{ userInfo.phone }}</p>
               <p v-else class="text-gray-500">未绑定手机号</p>
@@ -164,7 +168,7 @@
                   ></div>
                   <p
                     class="text-xl font-bold"
-                    :style="points.level_info?.color ? { color: points.level_info.color } : { color: '#9333ea' }"
+                    :style="points.level_info?.color ? { color: points.level_info.color } : {}"
                   >
                     {{ levelDisplay }}
                   </p>

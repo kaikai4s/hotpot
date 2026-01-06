@@ -42,6 +42,8 @@ export interface Review {
     level?: {
       code: string;
       name: string;
+      icon?: string | null;
+      color?: string | null;
     } | null;
   };
   dish?: {

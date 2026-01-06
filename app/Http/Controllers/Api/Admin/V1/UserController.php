@@ -130,6 +130,21 @@ class UserController extends Controller
         $users->getCollection()->transform(function ($user) {
             $memberPoint = $user->memberPoints;
             $orders = $user->orders ?? collect();
+            
+            // 获取段位详细信息
+            $levelInfo = null;
+            if ($memberPoint && $memberPoint->level) {
+                $levelModel = \App\Models\PointLevel::where('code', $memberPoint->level)->first();
+                if ($levelModel) {
+                    $levelInfo = [
+                        'code' => $levelModel->code,
+                        'name' => $levelModel->name,
+                        'icon' => $levelModel->icon,
+                        'color' => $levelModel->color,
+                    ];
+                }
+            }
+            
             return [
                 'id' => $user->id,
                 'openid' => $user->openid,
@@ -142,6 +157,10 @@ class UserController extends Controller
                 'remark' => $user->remark ?? null,
                 'created_at' => $user->created_at,
                 'updated_at' => $user->updated_at,
+                'member_points' => $memberPoint ? [
+                    'level' => $memberPoint->level,
+                    'level_info' => $levelInfo,
+                ] : null,
                 'statistics' => [
                     'total_points' => $memberPoint?->total_points ?? 0,
                     'available_points' => $memberPoint?->available_points ?? 0,
@@ -243,7 +262,18 @@ class UserController extends Controller
         // 获取段位信息
         $levelInfo = null;
         if ($memberPoint && $memberPoint->level) {
-            $levelInfo = \App\Models\PointLevel::where('code', $memberPoint->level)->first();
+            $levelModel = \App\Models\PointLevel::where('code', $memberPoint->level)->first();
+            if ($levelModel) {
+                $levelInfo = [
+                    'id' => $levelModel->id,
+                    'code' => $levelModel->code,
+                    'name' => $levelModel->name,
+                    'icon' => $levelModel->icon,
+                    'color' => $levelModel->color,
+                    'min_points' => $levelModel->min_points,
+                    'description' => $levelModel->description,
+                ];
+            }
         }
 
         // 获取所有订单（用于详情显示）
