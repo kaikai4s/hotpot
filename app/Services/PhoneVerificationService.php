@@ -38,11 +38,11 @@ class PhoneVerificationService
         // 检查是否启用手机号登录（模拟绑定模式除外）
         if (!$isMockBinding) {
             $phoneLoginEnabled = Configuration::getValue('phone_login_enabled', false);
-            if (!$phoneLoginEnabled) {
-                return [
-                    'success' => false,
-                    'message' => '手机号登录功能未启用',
-                ];
+        if (!$phoneLoginEnabled) {
+            return [
+                'success' => false,
+                'message' => '手机号登录功能未启用',
+            ];
             }
         }
 

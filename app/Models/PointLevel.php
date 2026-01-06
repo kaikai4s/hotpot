@@ -91,10 +91,10 @@ class PointLevel extends Model
             'point_levels_active',
             3600, // 缓存1小时
             function () {
-                return static::where('is_active', true)
-                    ->orderBy('sort_order', 'asc')
-                    ->orderBy('min_points', 'asc')
-                    ->get();
+        return static::where('is_active', true)
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('min_points', 'asc')
+            ->get();
             }
         );
     }

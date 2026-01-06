@@ -6,9 +6,9 @@
         <div class="bg-white rounded-2xl shadow-xl p-8 mb-8">
           <div class="flex items-center space-x-6">
             <div class="relative">
-              <div class="w-24 h-24 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center">
-                <img v-if="userInfo?.avatar_url" :src="userInfo.avatar_url" alt="头像" class="w-full h-full rounded-full object-cover" />
-                <span v-else class="text-4xl text-white font-bold">{{ userInfo?.nickname?.charAt(0) || 'U' }}</span>
+            <div class="w-24 h-24 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center">
+              <img v-if="userInfo?.avatar_url" :src="userInfo.avatar_url" alt="头像" class="w-full h-full rounded-full object-cover" />
+              <span v-else class="text-4xl text-white font-bold">{{ userInfo?.nickname?.charAt(0) || 'U' }}</span>
               </div>
               <!-- 性别图标显示在头像右下角 -->
               <div v-if="userInfo?.gender !== null && userInfo?.gender !== undefined" class="absolute -bottom-1 -right-1 bg-white rounded-full p-1 shadow-md">

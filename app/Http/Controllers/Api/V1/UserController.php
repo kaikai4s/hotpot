@@ -99,33 +99,33 @@ class UserController extends Controller
             
             // 如果手机号有变化（包括从空到有值的情况）
             if ($phone !== $currentPhone) {
-                $code = $request->input('phone_verification_code');
+            $code = $request->input('phone_verification_code');
 
-                if (!$code) {
-                    return response()->json([
-                        'code' => 400,
+            if (!$code) {
+                return response()->json([
+                    'code' => 400,
                         'message' => $currentPhone ? '修改手机号需要验证码' : '绑定手机号需要验证码',
-                    ], 400);
-                }
+                ], 400);
+            }
 
-                // 验证验证码
-                $phoneVerificationService = app(PhoneVerificationService::class);
-                $verifyResult = $phoneVerificationService->verifyCode($phone, $code, 'register');
+            // 验证验证码
+            $phoneVerificationService = app(PhoneVerificationService::class);
+            $verifyResult = $phoneVerificationService->verifyCode($phone, $code, 'register');
 
-                if (!$verifyResult['success']) {
-                    return response()->json([
-                        'code' => 400,
-                        'message' => $verifyResult['message'],
-                    ], 400);
-                }
+            if (!$verifyResult['success']) {
+                return response()->json([
+                    'code' => 400,
+                    'message' => $verifyResult['message'],
+                ], 400);
+            }
 
-                $updateData['phone'] = $phone;
+            $updateData['phone'] = $phone;
 
-                LoggerHelper::userInfo('用户修改手机号', [
-                    'user_id' => $user->id,
-                    'old_phone' => $user->phone ? substr($user->phone, 0, 3) . '****' . substr($user->phone, -4) : null,
-                    'new_phone' => substr($phone, 0, 3) . '****' . substr($phone, -4),
-                ]);
+            LoggerHelper::userInfo('用户修改手机号', [
+                'user_id' => $user->id,
+                'old_phone' => $user->phone ? substr($user->phone, 0, 3) . '****' . substr($user->phone, -4) : null,
+                'new_phone' => substr($phone, 0, 3) . '****' . substr($phone, -4),
+            ]);
             }
         }
 

@@ -43,32 +43,32 @@ class AchievementService
         $processing[$key] = true;
         
         try {
-            // 获取该分类的所有启用的成就模板
-            $templates = AchievementTemplate::where('category', $category)
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->get();
+        // 获取该分类的所有启用的成就模板
+        $templates = AchievementTemplate::where('category', $category)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
 
-            foreach ($templates as $template) {
-                // 获取或创建用户成就记录
-                $userAchievement = UserAchievement::firstOrCreate(
-                    [
-                        'user_id' => $user->id,
-                        'achievement_template_id' => $template->id,
-                    ],
-                    [
-                        'progress' => $this->getInitialProgress($user, $template),
-                        'reward_issued' => false,
-                    ]
-                );
+        foreach ($templates as $template) {
+            // 获取或创建用户成就记录
+            $userAchievement = UserAchievement::firstOrCreate(
+                [
+                    'user_id' => $user->id,
+                    'achievement_template_id' => $template->id,
+                ],
+                [
+                    'progress' => $this->getInitialProgress($user, $template),
+                    'reward_issued' => false,
+                ]
+            );
 
-                // 如果已完成，跳过
-                if ($userAchievement->completed_at) {
-                    continue;
-                }
+            // 如果已完成，跳过
+            if ($userAchievement->completed_at) {
+                continue;
+            }
 
-                // 更新进度
-                $this->updateAchievementProgress($userAchievement, $template, $increment, $extraData);
+            // 更新进度
+            $this->updateAchievementProgress($userAchievement, $template, $increment, $extraData);
             }
         } finally {
             // 【修复死循环】清除处理标志
@@ -127,7 +127,7 @@ class AchievementService
         $completing[$key] = true;
 
         try {
-            DB::transaction(function () use ($userAchievement) {
+        DB::transaction(function () use ($userAchievement) {
                 // 确保关联已加载，避免N+1查询
                 if (!$userAchievement->relationLoaded('achievementTemplate')) {
                     $userAchievement->load('achievementTemplate');
@@ -136,8 +136,8 @@ class AchievementService
                     $userAchievement->load('user');
                 }
                 
-                $template = $userAchievement->achievementTemplate;
-                $user = $userAchievement->user;
+            $template = $userAchievement->achievementTemplate;
+            $user = $userAchievement->user;
 
                 if (!$template || !$user) {
                     Log::warning('成就完成失败：缺少必要数据', [
@@ -146,52 +146,52 @@ class AchievementService
                     return;
                 }
 
-                // 发放积分奖励
-                if ($template->reward_points > 0) {
-                    $this->pointService->earnPoints(
-                        $user,
-                        $template->reward_points,
-                        'achievement',
-                        $userAchievement->id,
-                        "完成成就：{$template->name}"
-                    );
-                }
+            // 发放积分奖励
+            if ($template->reward_points > 0) {
+                $this->pointService->earnPoints(
+                    $user,
+                    $template->reward_points,
+                    'achievement',
+                    $userAchievement->id,
+                    "完成成就：{$template->name}"
+                );
+            }
 
-                // 发放优惠券奖励
-                if ($template->reward_coupon_id) {
+            // 发放优惠券奖励
+            if ($template->reward_coupon_id) {
                     // 确保优惠券关联已加载
                     if (!$template->relationLoaded('rewardCoupon')) {
                         $template->load('rewardCoupon');
                     }
                     
-                    $coupon = $template->rewardCoupon;
-                    if ($coupon && $coupon->is_active && $coupon->stock > 0) {
-                        UserCoupon::create([
-                            'user_id' => $user->id,
-                            'coupon_id' => $coupon->id,
-                            'status' => 'unused',
-                            'expires_at' => now()->addDays(30),
-                        ]);
+                $coupon = $template->rewardCoupon;
+                if ($coupon && $coupon->is_active && $coupon->stock > 0) {
+                    UserCoupon::create([
+                        'user_id' => $user->id,
+                        'coupon_id' => $coupon->id,
+                        'status' => 'unused',
+                        'expires_at' => now()->addDays(30),
+                    ]);
 
-                        // 减少优惠券库存
-                        $coupon->decrement('stock');
-                    }
+                    // 减少优惠券库存
+                    $coupon->decrement('stock');
                 }
+            }
 
-                // 标记完成和奖励已发放
-                $userAchievement->update([
-                    'completed_at' => now(),
-                    'reward_issued' => true,
-                ]);
+            // 标记完成和奖励已发放
+            $userAchievement->update([
+                'completed_at' => now(),
+                'reward_issued' => true,
+            ]);
 
-                Log::info('成就完成，奖励已发放', [
-                    'user_achievement_id' => $userAchievement->id,
-                    'user_id' => $user->id,
-                    'achievement_template_id' => $template->id,
-                    'achievement_name' => $template->name,
-                    'reward_points' => $template->reward_points,
-                ]);
-            });
+            Log::info('成就完成，奖励已发放', [
+                'user_achievement_id' => $userAchievement->id,
+                'user_id' => $user->id,
+                'achievement_template_id' => $template->id,
+                'achievement_name' => $template->name,
+                'reward_points' => $template->reward_points,
+            ]);
+        });
         } finally {
             // 【修复死循环】清除完成标志
             unset($completing[$key]);
@@ -287,7 +287,7 @@ class AchievementService
 
         $loopStart = microtime(true);
         $templateCount = $templates->count();
-        
+
         foreach ($templates as $index => $template) {
             $userAchievement = $existingAchievements->get($template->id);
 
@@ -348,8 +348,8 @@ class AchievementService
                     'updated_at' => now(),
                 ];
             } else {
-                // 如果未完成，重新计算进度（确保进度是最新的）
-                if (!$userAchievement->completed_at) {
+            // 如果未完成，重新计算进度（确保进度是最新的）
+            if (!$userAchievement->completed_at) {
                     // 检查进度是否有变化
                     $progress = $userAchievement->progress ?? ['current' => 0, 'target' => 0];
                     if ($progress['current'] != $currentProgress || $progress['target'] != $target) {
@@ -358,7 +358,7 @@ class AchievementService
                     }
 
                     // 检查是否完成（延迟处理，避免在循环中执行耗时操作）
-                    if ($currentProgress >= $target) {
+                if ($currentProgress >= $target) {
                         $achievementsToComplete[] = $userAchievement;
                     }
                 }
@@ -404,8 +404,8 @@ class AchievementService
                 
                 $this->completeAchievement($achievement);
                 $achievement->refresh();
+                }
             }
-        }
 
         // 构建返回数据
         foreach ($templates as $template) {
@@ -734,7 +734,7 @@ class AchievementService
                         'template_id' => $template->id,
                         'calc_time' => round($calcTime, 3),
                     ]);
-                }
+            }
                 return $result;
             }
         }
@@ -748,7 +748,7 @@ class AchievementService
                 'calc_time' => round($calcTime, 3),
             ]);
         }
-        
+
         return 0;
     }
 

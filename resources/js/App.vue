@@ -4,7 +4,8 @@
   
   <!-- 管理后台布局 -->
   <el-container v-else-if="isAdminRoute" class="h-screen">
-    <el-aside width="240px" class="bg-gradient-to-b from-gray-800 to-gray-900 text-white shadow-xl">
+    <!-- 桌面端侧边栏 -->
+    <el-aside width="240px" class="hidden md:block bg-gradient-to-b from-gray-800 to-gray-900 text-white shadow-xl">
       <div class="p-6">
         <div class="flex items-center mb-8">
           <div class="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-500 rounded-lg flex items-center justify-center mr-3">
@@ -132,23 +133,169 @@
         </el-menu>
       </div>
     </el-aside>
+    
+    <!-- 手机端抽屉菜单 -->
+    <el-drawer
+      v-model="mobileMenuVisible"
+      :with-header="false"
+      direction="ltr"
+      size="280px"
+      class="mobile-drawer"
+    >
+      <div class="p-6 bg-gradient-to-b from-gray-800 to-gray-900 text-white h-full">
+        <div class="flex items-center mb-8">
+          <div class="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-500 rounded-lg flex items-center justify-center mr-3">
+            <span class="text-2xl">🔥</span>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold">火锅店管理</h2>
+            <p class="text-xs text-gray-400">Management System</p>
+          </div>
+        </div>
+        <el-menu
+          :default-active="activeMenu"
+          class="bg-transparent border-0"
+          text-color="#fff"
+          active-text-color="#ff6b6b"
+          background-color="transparent"
+          router
+          @select="handleMenuSelect"
+        >
+          <el-menu-item index="/admin/dashboard" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+            <el-icon><DataAnalysis /></el-icon>
+            <span>仪表盘</span>
+          </el-menu-item>
+          <el-menu-item index="/admin/reservations" class="mb-2 rounded-lg hover:bg-gray-700 transition-all relative">
+            <el-icon><Calendar /></el-icon>
+            <span>预约管理</span>
+            <span v-if="unviewedReservationsCount > 0" class="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+              {{ unviewedReservationsCount > 99 ? '99+' : unviewedReservationsCount }}
+            </span>
+          </el-menu-item>
+          <el-menu-item index="/admin/deposits" class="mb-2 rounded-lg hover:bg-gray-700 transition-all relative">
+            <el-icon><Money /></el-icon>
+            <span>定金管理</span>
+            <span v-if="unviewedDepositsCount > 0" class="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+              {{ unviewedDepositsCount > 99 ? '99+' : unviewedDepositsCount }}
+            </span>
+          </el-menu-item>
+          <el-menu-item index="/admin/reviews" class="mb-2 rounded-lg hover:bg-gray-700 transition-all relative">
+            <el-icon><Star /></el-icon>
+            <span>评价管理</span>
+            <span v-if="unviewedReviewsCount > 0" class="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+              {{ unviewedReviewsCount > 99 ? '99+' : unviewedReviewsCount }}
+            </span>
+          </el-menu-item>
+          <el-menu-item index="/admin/dishes" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+            <el-icon><Food /></el-icon>
+            <span>菜品管理</span>
+          </el-menu-item>
+          <el-menu-item index="/admin/tables" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+            <el-icon><Grid /></el-icon>
+            <span>桌位管理</span>
+          </el-menu-item>
+          <el-menu-item index="/admin/queues" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+            <el-icon><List /></el-icon>
+            <span>排队管理</span>
+          </el-menu-item>
+          <el-menu-item index="/admin/orders" class="mb-2 rounded-lg hover:bg-gray-700 transition-all relative">
+            <el-icon><ShoppingBag /></el-icon>
+            <span>订单管理</span>
+            <span v-if="unviewedOrdersCount > 0" class="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+              {{ unviewedOrdersCount > 99 ? '99+' : unviewedOrdersCount }}
+            </span>
+          </el-menu-item>
+              <el-menu-item index="/admin/admins" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+                <el-icon><UserFilled /></el-icon>
+                <span>管理员管理</span>
+              </el-menu-item>
+              <el-menu-item index="/admin/users" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+                <el-icon><User /></el-icon>
+                <span>用户管理</span>
+              </el-menu-item>
+              <el-sub-menu index="points-menu" class="sub-menu-custom">
+                <template #title>
+                  <el-icon><Star /></el-icon>
+                  <span>积分系统</span>
+                </template>
+                <el-menu-item index="/admin/points" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+                  <span>积分管理</span>
+                </el-menu-item>
+                <el-menu-item index="/admin/point-levels" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+                  <span>段位管理</span>
+                </el-menu-item>
+                <el-menu-item index="/admin/point-rules" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+                  <span>规则配置</span>
+                </el-menu-item>
+                <el-menu-item index="/admin/point-statistics" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+                  <span>统计分析</span>
+                </el-menu-item>
+                <el-menu-item index="/admin/achievements" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+                  <span>成就管理</span>
+                </el-menu-item>
+              </el-sub-menu>
+              <el-sub-menu index="coupons-menu" class="sub-menu-custom">
+                <template #title>
+                  <el-icon><Ticket /></el-icon>
+                  <span>优惠活动</span>
+                </template>
+                <el-menu-item index="/admin/coupons" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+                  <span>优惠券管理</span>
+                </el-menu-item>
+                <el-menu-item index="/admin/lottery" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+                  <span>抽奖活动</span>
+                </el-menu-item>
+              </el-sub-menu>
+              <el-menu-item index="/admin/roles" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+                <el-icon><Lock /></el-icon>
+                <span>角色权限</span>
+              </el-menu-item>
+              <!-- 操作日志仅超级管理员可见 -->
+              <el-menu-item 
+                v-if="adminInfo?.role === 'super_admin' || hasPermission('audit_logs.view')"
+                index="/admin/audit-logs" 
+                class="mb-2 rounded-lg hover:bg-gray-700 transition-all"
+              >
+                <el-icon><Document /></el-icon>
+                <span>操作日志</span>
+              </el-menu-item>
+          <el-menu-item index="/admin/settings" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+            <el-icon><Setting /></el-icon>
+            <span>配置管理</span>
+          </el-menu-item>
+          <el-menu-item index="/admin/profile" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+            <el-icon><User /></el-icon>
+            <span>个人中心</span>
+          </el-menu-item>
+        </el-menu>
+      </div>
+    </el-drawer>
+    
     <el-container>
       <!-- 顶部栏 -->
-      <el-header class="bg-white shadow-sm border-b border-gray-200 flex items-center justify-between px-6 h-16">
-        <div class="flex items-center">
-          <h3 class="text-lg font-semibold text-gray-800">{{ pageTitle }}</h3>
+      <el-header class="bg-white shadow-sm border-b border-gray-200 flex items-center justify-between px-4 md:px-6 h-16">
+        <div class="flex items-center gap-3">
+          <!-- 手机端菜单按钮 -->
+          <el-button
+            text
+            @click="mobileMenuVisible = true"
+            class="md:hidden"
+          >
+            <el-icon class="text-xl"><Menu /></el-icon>
+          </el-button>
+          <h3 class="text-base md:text-lg font-semibold text-gray-800">{{ pageTitle }}</h3>
         </div>
         <div class="flex items-center">
           <el-dropdown @command="handleCommand" trigger="click">
-            <div class="flex items-center cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors">
+            <div class="flex items-center cursor-pointer hover:bg-gray-50 px-2 md:px-3 py-2 rounded-lg transition-colors">
               <div class="w-8 h-8 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center mr-2">
                 <span class="text-white text-sm font-bold">{{ adminInfo?.name?.charAt(0) || 'A' }}</span>
               </div>
-              <div class="text-right mr-2">
+              <div class="text-right mr-2 hidden sm:block">
                 <p class="text-sm font-medium text-gray-800">{{ adminInfo?.name || '管理员' }}</p>
                 <p class="text-xs text-gray-500">{{ adminInfo?.role === 'super_admin' ? '超级管理员' : adminInfo?.role === 'admin' ? '管理员' : '操作员' }}</p>
               </div>
-              <el-icon class="text-gray-500"><ArrowDown /></el-icon>
+              <el-icon class="text-gray-500 hidden sm:block"><ArrowDown /></el-icon>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
@@ -178,7 +325,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Calendar, Star, DataAnalysis, Food, Grid, ArrowDown, User, SwitchButton, UserFilled, Lock, Setting, Ticket, ShoppingBag, Money, Document, List } from '@element-plus/icons-vue';
+import { Calendar, Star, DataAnalysis, Food, Grid, ArrowDown, User, SwitchButton, UserFilled, Lock, Setting, Ticket, ShoppingBag, Money, Document, List, Menu } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { adminAuthApi } from './api/admin';
 import { adminOrderApi } from './api/admin/order';
@@ -195,6 +342,7 @@ const unviewedOrdersCount = ref(0);
 const unviewedDepositsCount = ref(0);
 const unviewedReviewsCount = ref(0);
 const unviewedReservationsCount = ref(0);
+const mobileMenuVisible = ref(false);
 
 const isAdminRoute = computed(() => {
   // 后台路由统一以 /admin/ 开头（但排除 /admin/login）
@@ -329,6 +477,11 @@ const loadUnviewedCounts = async () => {
   } catch (error) {
     console.error('加载未查看数量失败:', error);
   }
+};
+
+const handleMenuSelect = () => {
+  // 手机端选择菜单后自动关闭抽屉
+  mobileMenuVisible.value = false;
 };
 
 const handleCommand = async (command: string) => {
@@ -557,5 +710,23 @@ body {
 :deep(.el-sub-menu__title:hover) {
   background-color: rgba(255, 255, 255, 0.1) !important;
   color: #fff !important;
+}
+
+/* 手机端抽屉菜单样式 */
+:deep(.mobile-drawer .el-drawer__body) {
+  padding: 0;
+  overflow-y: auto;
+}
+
+/* 手机端响应式优化 */
+@media (max-width: 768px) {
+  .el-header {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .el-main {
+    padding: 1rem;
+  }
 }
 </style>

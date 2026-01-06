@@ -342,15 +342,15 @@ const submitReview = async () => {
     // 批量提交评价（为每个选中的菜品创建一条评价）
     const promises = form.value.dish_ids.map(dishId => 
       reviewApi.create({
-        order_id: form.value.order_id,
+      order_id: form.value.order_id,
         dish_id: dishId,
-        rating: form.value.rating,
-        content: form.value.content.trim() || undefined,
-        images: form.value.images.length > 0 ? form.value.images : undefined,
-        tags: form.value.tags.length > 0 ? form.value.tags : undefined,
+      rating: form.value.rating,
+      content: form.value.content.trim() || undefined,
+      images: form.value.images.length > 0 ? form.value.images : undefined,
+      tags: form.value.tags.length > 0 ? form.value.tags : undefined,
       })
     );
-    
+
     const responses = await Promise.all(promises);
     const successCount = responses.filter(r => r.code === 201).length;
     const failCount = responses.length - successCount;
