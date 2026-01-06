@@ -112,6 +112,7 @@
         v-loading="loading"
         :data="orders"
         stripe
+        border
         style="width: 100%"
         class="mb-4"
         :row-class-name="tableRowClassName"

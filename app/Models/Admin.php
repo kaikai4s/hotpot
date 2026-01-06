@@ -65,6 +65,11 @@ class Admin extends Authenticatable
 
     public function hasAnyPermission(array $permissionNames): bool
     {
+        // 超级管理员拥有所有权限
+        if ($this->role === 'super_admin') {
+            return true;
+        }
+
         foreach ($permissionNames as $permissionName) {
             if ($this->hasPermission($permissionName)) {
                 return true;

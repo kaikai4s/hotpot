@@ -53,6 +53,7 @@
         v-loading="loading"
         :data="admins"
         stripe
+        border
         style="width: 100%"
         class="mb-4"
       >

@@ -77,6 +77,7 @@ class PermissionSeeder extends Seeder
             // 订单管理权限
             ['name' => 'orders.view', 'display_name' => '查看订单', 'group' => 'orders', 'description' => '查看订单列表和详情', 'sort_order' => 1],
             ['name' => 'orders.update', 'display_name' => '更新订单', 'group' => 'orders', 'description' => '更新订单状态和信息', 'sort_order' => 2],
+            ['name' => 'orders.delete', 'display_name' => '删除订单', 'group' => 'orders', 'description' => '删除订单记录', 'sort_order' => 3],
 
             // 菜品管理权限
             ['name' => 'dishes.view', 'display_name' => '查看菜品', 'group' => 'dishes', 'description' => '查看菜品列表和详情', 'sort_order' => 1],
@@ -84,8 +85,25 @@ class PermissionSeeder extends Seeder
             ['name' => 'dishes.update', 'display_name' => '更新菜品', 'group' => 'dishes', 'description' => '更新菜品信息', 'sort_order' => 3],
             ['name' => 'dishes.delete', 'display_name' => '删除菜品', 'group' => 'dishes', 'description' => '删除菜品', 'sort_order' => 4],
 
+            // 套餐管理权限
+            ['name' => 'combos.view', 'display_name' => '查看套餐', 'group' => 'combos', 'description' => '查看套餐列表和详情', 'sort_order' => 1],
+            ['name' => 'combos.create', 'display_name' => '创建套餐', 'group' => 'combos', 'description' => '创建新套餐', 'sort_order' => 2],
+            ['name' => 'combos.update', 'display_name' => '更新套餐', 'group' => 'combos', 'description' => '更新套餐信息', 'sort_order' => 3],
+            ['name' => 'combos.delete', 'display_name' => '删除套餐', 'group' => 'combos', 'description' => '删除套餐', 'sort_order' => 4],
+
+            // 排队管理权限
+            ['name' => 'queues.view', 'display_name' => '查看排队', 'group' => 'queues', 'description' => '查看排队列表和详情', 'sort_order' => 1],
+            ['name' => 'queues.update', 'display_name' => '更新排队', 'group' => 'queues', 'description' => '更新排队状态和位置', 'sort_order' => 2],
+            ['name' => 'queues.delete', 'display_name' => '删除排队', 'group' => 'queues', 'description' => '删除排队记录', 'sort_order' => 3],
+
+            // 评价管理权限补充
+            ['name' => 'reviews.update', 'display_name' => '更新评价', 'group' => 'reviews', 'description' => '更新评价状态和首页展示', 'sort_order' => 7],
+
             // 操作日志管理权限（仅超级管理员）
             ['name' => 'audit_logs.view', 'display_name' => '查看操作日志', 'group' => 'audit_logs', 'description' => '查看系统操作日志和统计信息', 'sort_order' => 1],
+
+            // 仪表盘权限
+            ['name' => 'dashboard.view', 'display_name' => '查看仪表盘', 'group' => 'dashboard', 'description' => '查看系统统计和仪表盘数据', 'sort_order' => 1],
         ];
 
         foreach ($permissions as $permission) {

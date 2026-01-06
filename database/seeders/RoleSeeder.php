@@ -58,8 +58,11 @@ class RoleSeeder extends Seeder
 
         // 操作员拥有查看和基本操作权限
         $operatorPermissions = Permission::whereIn('name', [
+            'dashboard.view',
             'tables.view',
             'tables.position',
+            'queues.view',
+            'queues.update',
             'reservations.view',
             'reservations.update',
             'reviews.view',
@@ -67,9 +70,15 @@ class RoleSeeder extends Seeder
             'reviews.reply',
             'reviews.adopt',
             'reviews.track',
+            'reviews.update',
+            'orders.view',
+            'orders.update',
+            'dishes.view',
+            'combos.view',
             'areas.view',
             'points.view',
             'coupons.view',
+            'users.view',
         ])->get();
         $operatorRole->permissions()->sync($operatorPermissions->pluck('id'));
 

@@ -125,6 +125,7 @@
         v-loading="loading"
         :data="reservations"
         stripe
+        border
         style="width: 100%"
         class="mb-4"
         @selection-change="handleSelectionChange"

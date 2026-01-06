@@ -67,6 +67,7 @@
         v-loading="loading"
         :data="logs"
         stripe
+        border
         style="width: 100%"
         class="mb-4"
       >

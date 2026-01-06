@@ -106,7 +106,7 @@
     <!-- 详细统计表格 -->
     <div class="bg-white rounded-xl shadow-lg p-6">
       <h2 class="text-xl font-bold text-gray-800 mb-4">每日统计明细</h2>
-      <el-table v-loading="loading" :data="statistics" stripe style="width: 100%">
+      <el-table v-loading="loading" :data="statistics" stripe border style="width: 100%">
         <el-table-column prop="stat_date" label="日期" width="120" />
         <el-table-column prop="total_earned" label="获得积分" width="120">
           <template #default="{ row }">
@@ -133,7 +133,7 @@
         <h2 class="text-xl font-bold text-gray-800">用户积分排行榜</h2>
         <el-input-number v-model="rankingLimit" :min="10" :max="100" :step="10" @change="fetchRanking" />
       </div>
-      <el-table v-loading="rankingLoading" :data="ranking" stripe style="width: 100%">
+      <el-table v-loading="rankingLoading" :data="ranking" stripe border style="width: 100%">
         <el-table-column type="index" label="排名" width="80">
           <template #default="{ $index }">
             <span v-if="$index < 3" class="text-2xl">{{ ['🥇', '🥈', '🥉'][$index] }}</span>
@@ -207,7 +207,7 @@
       </div>
 
       <!-- 异常列表 -->
-      <el-table v-loading="anomalyLoading" :data="anomalies" stripe style="width: 100%">
+      <el-table v-loading="anomalyLoading" :data="anomalies" stripe border style="width: 100%">
         <el-table-column prop="type" label="异常类型" width="150">
           <template #default="{ row }">
             <el-tag :type="getAnomalyTypeTag(row.type)">{{ getAnomalyTypeText(row.type) }}</el-tag>

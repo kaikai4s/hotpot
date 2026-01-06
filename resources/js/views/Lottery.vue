@@ -44,6 +44,7 @@
         v-loading="loading"
         :data="activities"
         stripe
+        border
         style="width: 100%"
         class="mb-4"
       >
@@ -230,7 +231,7 @@
         </el-button>
       </div>
 
-      <el-table :data="prizes" stripe style="width: 100%" class="mb-4">
+      <el-table :data="prizes" stripe border style="width: 100%" class="mb-4">
         <el-table-column prop="name" label="奖品名称" width="150" />
         <el-table-column prop="prize_type" label="类型" width="120">
           <template #default="{ row }">
@@ -454,6 +455,7 @@
         v-loading="recordsLoading"
         :data="records"
         stripe
+        border
         max-height="500"
       >
         <el-table-column prop="id" label="ID" width="80" />

@@ -50,6 +50,7 @@
         v-loading="loading"
         :data="levels"
         stripe
+        border
         style="width: 100%"
         class="mb-4"
       >

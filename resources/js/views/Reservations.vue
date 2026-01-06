@@ -75,6 +75,7 @@
         v-loading="store.loading"
         :data="store.reservations"
         stripe
+        border
         style="width: 100%"
         class="mb-4"
         :row-class-name="tableRowClassName"

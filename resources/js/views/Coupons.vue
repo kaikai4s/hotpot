@@ -53,6 +53,7 @@
         v-loading="loading"
         :data="coupons"
         stripe
+        border
         style="width: 100%"
         class="mb-4"
       >
@@ -274,6 +275,7 @@
         v-loading="usageLoading"
         :data="usageRecords"
         stripe
+        border
         max-height="500"
       >
         <el-table-column prop="code" label="优惠券码" width="150" />

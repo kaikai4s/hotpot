@@ -51,6 +51,7 @@
         v-loading="loading"
         :data="groupBuys"
         stripe
+        border
         style="width: 100%"
         class="mb-4"
       >
@@ -346,6 +347,7 @@
         v-loading="ordersLoading"
         :data="orders"
         stripe
+        border
         max-height="500"
       >
         <el-table-column prop="id" label="ID" width="80" />

@@ -102,6 +102,7 @@
         v-loading="loading"
         :data="reviews"
         stripe
+        border
         style="width: 100%"
         class="mb-4"
         @selection-change="handleSelectionChange"

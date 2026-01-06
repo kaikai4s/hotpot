@@ -57,6 +57,7 @@
         v-loading="loading"
         :data="points"
         stripe
+        border
         style="width: 100%"
         class="mb-4"
       >
@@ -147,7 +148,7 @@
         <!-- 交易记录 -->
         <div>
           <h3 class="text-lg font-semibold mb-4">积分交易记录</h3>
-          <el-table :data="transactions" stripe max-height="400">
+          <el-table :data="transactions" stripe border max-height="400">
             <el-table-column prop="type" label="类型" width="100">
               <template #default="{ row }">
                 <el-tag :type="row.points > 0 ? 'success' : 'danger'">

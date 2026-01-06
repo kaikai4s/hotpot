@@ -32,7 +32,7 @@
       </div>
 
       <!-- 规则列表 -->
-      <el-table v-loading="loading" :data="rules" stripe style="width: 100%">
+      <el-table v-loading="loading" :data="rules" stripe border style="width: 100%">
         <el-table-column prop="rule_key" label="规则键" width="150" />
         <el-table-column prop="rule_name" label="规则名称" width="200" />
         <el-table-column prop="rule_type" label="规则类型" width="100">

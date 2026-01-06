@@ -22,6 +22,7 @@
         v-loading="loading"
         :data="roles"
         stripe
+        border
         style="width: 100%"
         class="mb-4"
       >

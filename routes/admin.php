@@ -50,7 +50,7 @@ Route::prefix('admin/v1')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 
         // 仪表盘统计
-        Route::get('/dashboard/statistics', [DashboardController::class, 'statistics']);
+        Route::get('/dashboard/statistics', [DashboardController::class, 'statistics'])->middleware('permission:dashboard.view');
 
         // 权限管理
         Route::get('/permissions', [PermissionController::class, 'index'])->middleware('permission:roles.view');
@@ -97,28 +97,28 @@ Route::prefix('admin/v1')->group(function () {
         Route::post('/tables/positions', [TableController::class, 'updatePositions'])->middleware('permission:tables.position');
 
         // 排队管理
-        Route::get('/queues', [QueueController::class, 'index'])->middleware('permission:tables.view');
-        Route::get('/queues/{id}', [QueueController::class, 'show'])->middleware('permission:tables.view');
-        Route::post('/queues/call-next', [QueueController::class, 'callNext'])->middleware('permission:tables.update');
-        Route::post('/queues/{id}/seated', [QueueController::class, 'markSeated'])->middleware('permission:tables.update');
-        Route::post('/queues/{id}/cancel', [QueueController::class, 'cancel'])->middleware('permission:tables.update');
-        Route::post('/queues/{id}/adjust-position', [QueueController::class, 'adjustPosition'])->middleware('permission:tables.update');
-        Route::delete('/queues/batch', [QueueController::class, 'batchDelete'])->middleware('permission:tables.delete');
+        Route::get('/queues', [QueueController::class, 'index'])->middleware('permission:queues.view');
+        Route::get('/queues/{id}', [QueueController::class, 'show'])->middleware('permission:queues.view');
+        Route::post('/queues/call-next', [QueueController::class, 'callNext'])->middleware('permission:queues.update');
+        Route::post('/queues/{id}/seated', [QueueController::class, 'markSeated'])->middleware('permission:queues.update');
+        Route::post('/queues/{id}/cancel', [QueueController::class, 'cancel'])->middleware('permission:queues.update');
+        Route::post('/queues/{id}/adjust-position', [QueueController::class, 'adjustPosition'])->middleware('permission:queues.update');
+        Route::delete('/queues/batch', [QueueController::class, 'batchDelete'])->middleware('permission:queues.delete');
 
         // 菜品管理
-        Route::get('/dishes', [DishController::class, 'index'])->middleware('permission:tables.view');
-        Route::get('/dishes/categories', [DishController::class, 'categories'])->middleware('permission:tables.view');
-        Route::get('/dishes/{id}', [DishController::class, 'show'])->middleware('permission:tables.view');
-        Route::post('/dishes', [DishController::class, 'store'])->middleware('permission:tables.create');
-        Route::put('/dishes/{id}', [DishController::class, 'update'])->middleware('permission:tables.update');
-        Route::delete('/dishes/{id}', [DishController::class, 'destroy'])->middleware('permission:tables.delete');
+        Route::get('/dishes', [DishController::class, 'index'])->middleware('permission:dishes.view');
+        Route::get('/dishes/categories', [DishController::class, 'categories'])->middleware('permission:dishes.view');
+        Route::get('/dishes/{id}', [DishController::class, 'show'])->middleware('permission:dishes.view');
+        Route::post('/dishes', [DishController::class, 'store'])->middleware('permission:dishes.create');
+        Route::put('/dishes/{id}', [DishController::class, 'update'])->middleware('permission:dishes.update');
+        Route::delete('/dishes/{id}', [DishController::class, 'destroy'])->middleware('permission:dishes.delete');
 
         // 套餐管理
-        Route::get('/combos', [ComboController::class, 'index'])->middleware('permission:tables.view');
-        Route::get('/combos/{id}', [ComboController::class, 'show'])->middleware('permission:tables.view');
-        Route::post('/combos', [ComboController::class, 'store'])->middleware('permission:tables.create');
-        Route::put('/combos/{id}', [ComboController::class, 'update'])->middleware('permission:tables.update');
-        Route::delete('/combos/{id}', [ComboController::class, 'destroy'])->middleware('permission:tables.delete');
+        Route::get('/combos', [ComboController::class, 'index'])->middleware('permission:combos.view');
+        Route::get('/combos/{id}', [ComboController::class, 'show'])->middleware('permission:combos.view');
+        Route::post('/combos', [ComboController::class, 'store'])->middleware('permission:combos.create');
+        Route::put('/combos/{id}', [ComboController::class, 'update'])->middleware('permission:combos.update');
+        Route::delete('/combos/{id}', [ComboController::class, 'destroy'])->middleware('permission:combos.delete');
 
         // 区域管理
         Route::get('/areas', [RestaurantAreaController::class, 'index'])->middleware('permission:areas.view');

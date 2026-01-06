@@ -171,6 +171,7 @@
         v-loading="loading"
         :data="users"
         stripe
+        border
         style="width: 100%"
         class="mb-4"
         @selection-change="handleSelectionChange"
@@ -460,7 +461,7 @@
             </div>
             <div v-if="userDetail.invitees && userDetail.invitees.length > 0" class="mt-4">
               <div class="text-sm text-gray-600 mb-2">我邀请的好友 ({{ userDetail.invitees.length }}人)</div>
-              <el-table :data="userDetail.invitees.slice(0, 10)" size="small" max-height="200">
+              <el-table :data="userDetail.invitees.slice(0, 10)" size="small" border max-height="200">
                 <el-table-column prop="id" label="ID" width="80" />
                 <el-table-column label="用户信息" min-width="150">
                   <template #default="{ row }">
@@ -561,7 +562,7 @@
               <el-button type="primary" link @click="handleViewOrders(userDetail)">查看全部订单</el-button>
             </div>
           </template>
-          <el-table :data="userDetail.all_orders" size="small" max-height="400">
+          <el-table :data="userDetail.all_orders" size="small" border max-height="400">
             <el-table-column prop="order_no" label="订单号" width="180" />
             <el-table-column label="订单内容" min-width="200">
               <template #default="{ row }">

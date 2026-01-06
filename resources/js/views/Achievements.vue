@@ -51,6 +51,7 @@
         v-loading="loading"
         :data="templates"
         stripe
+        border
         style="width: 100%"
         class="mb-4"
       >
