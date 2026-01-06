@@ -46,6 +46,17 @@
                   <el-input-number
                     v-else-if="config.type === 'integer'"
                     v-model.number="config.value"
+                    :precision="0"
+                    :step="1"
+                    class="w-full"
+                  />
+                  <!-- 浮点数类型 -->
+                  <el-input-number
+                    v-else-if="config.type === 'float'"
+                    v-model.number="config.value"
+                    :precision="2"
+                    :step="0.01"
+                    :min="0"
                     class="w-full"
                   />
                   <!-- 布尔类型 -->
@@ -110,6 +121,7 @@ const getGroupLabel = (group: string) => {
     reservation: '预约配置',
     points: '积分配置',
     table: '桌位配置',
+    queue: '排队配置',
   };
   return labels[group] || group;
 };

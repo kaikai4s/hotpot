@@ -56,6 +56,10 @@
             <el-icon><Grid /></el-icon>
             <span>桌位管理</span>
           </el-menu-item>
+          <el-menu-item index="/admin/queues" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+            <el-icon><List /></el-icon>
+            <span>排队管理</span>
+          </el-menu-item>
           <el-menu-item index="/admin/orders" class="mb-2 rounded-lg hover:bg-gray-700 transition-all relative">
             <el-icon><ShoppingBag /></el-icon>
             <span>订单管理</span>
@@ -174,7 +178,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Calendar, Star, DataAnalysis, Food, Grid, ArrowDown, User, SwitchButton, UserFilled, Lock, Setting, Ticket, ShoppingBag, Money, Document } from '@element-plus/icons-vue';
+import { Calendar, Star, DataAnalysis, Food, Grid, ArrowDown, User, SwitchButton, UserFilled, Lock, Setting, Ticket, ShoppingBag, Money, Document, List } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { adminAuthApi } from './api/admin';
 import { adminOrderApi } from './api/admin/order';
@@ -223,6 +227,7 @@ const pageTitle = computed(() => {
         '/admin/reviews': '评价管理',
         '/admin/dishes': '菜品管理',
         '/admin/tables': '桌位管理',
+        '/admin/queues': '排队管理',
         '/admin/users': '用户管理',
         '/admin/admins': '管理员管理',
         '/admin/points': '积分管理',

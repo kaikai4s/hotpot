@@ -43,6 +43,7 @@ class Configuration extends Model
 
         return match ($this->type) {
             'integer' => (int) $value,
+            'float' => (float) $value,
             'boolean' => filter_var($value, FILTER_VALIDATE_BOOLEAN),
             'json' => json_decode($value, true),
             default => $value,
@@ -61,6 +62,7 @@ class Configuration extends Model
 
         $this->attributes['value'] = match ($this->type) {
             'integer' => (string) $value,
+            'float' => (string) $value,
             'boolean' => $value ? '1' : '0',
             'json' => json_encode($value),
             default => (string) $value,

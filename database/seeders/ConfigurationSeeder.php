@@ -110,6 +110,38 @@ class ConfigurationSeeder extends Seeder
                 'sort_order' => 4,
                 'is_public' => true,
             ],
+            // 排队配置
+            [
+                'key' => 'queue_called_timeout_minutes',
+                'value' => '15',
+                'type' => 'integer',
+                'group' => 'queue',
+                'label' => '叫号后预留时间（分钟）',
+                'description' => '叫号后多少分钟内需要到店，超时后自动取消并重新排队',
+                'sort_order' => 1,
+                'is_public' => true,
+            ],
+            // 桌位配置
+            [
+                'key' => 'table_occupation_timeout_hours',
+                'value' => '4',
+                'type' => 'float',
+                'group' => 'table',
+                'label' => '桌位占用超时时间（小时）',
+                'description' => '桌位占用超过此时间且没有进行中的订单时，系统会自动释放桌位。支持小数，例如0.01小时（36秒）。默认4小时。',
+                'sort_order' => 1,
+                'is_public' => true,
+            ],
+            [
+                'key' => 'table_occupation_release_check_interval_minutes',
+                'value' => '1',
+                'type' => 'integer',
+                'group' => 'table',
+                'label' => '桌位释放检查间隔（分钟）',
+                'description' => '系统每隔多少分钟检查一次超时占用的桌位。建议设置为超时时间的1/10到1/5，例如超时时间0.01小时（36秒）建议设置为1分钟。默认1分钟。',
+                'sort_order' => 2,
+                'is_public' => false,
+            ],
             [
                 'key' => 'points_to_money_rate',
                 'value' => '100',

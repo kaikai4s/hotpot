@@ -25,6 +25,7 @@ const PointStatistics = () => import('../views/PointStatistics.vue');
 const Coupons = () => import('../views/Coupons.vue');
 const Orders = () => import('../views/Orders.vue');
 const Deposits = () => import('../views/Deposits.vue');
+const Queues = () => import('../views/Queues.vue');
 const AuditLogs = () => import('../views/AuditLogs.vue');
 const Lottery = () => import('../views/Lottery.vue');
 const Achievements = () => import('../views/Achievements.vue');
@@ -88,6 +89,12 @@ const routes = [
     path: '/admin/tables',
     name: 'Tables',
     component: Tables,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/admin/queues',
+    name: 'Queues',
+    component: Queues,
     meta: { requiresAuth: true },
   },
   {

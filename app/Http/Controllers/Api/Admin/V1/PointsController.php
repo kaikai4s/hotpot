@@ -61,7 +61,7 @@ class PointsController extends Controller
             $query->where('users.id', $request->input('user_id'));
         }
 
-        // 排序
+        // 排序 7
         $sortBy = $request->input('sort_by', 'total_points');
         // 确保 sort_order 是字符串类型，防止类型错误
         $sortOrderInput = $request->input('sort_order', 'desc');

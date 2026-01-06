@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\Admin\V1\ReviewController;
 use App\Http\Controllers\Api\Admin\V1\RestaurantAreaController;
 use App\Http\Controllers\Api\Admin\V1\RoleController;
 use App\Http\Controllers\Api\Admin\V1\TableController;
+use App\Http\Controllers\Api\Admin\V1\QueueController;
 use App\Http\Controllers\Api\Admin\V1\UploadController;
 use App\Http\Controllers\Api\Admin\V1\UserController;
 use App\Http\Controllers\Api\Admin\V1\TaskTemplateController;
@@ -93,6 +94,15 @@ Route::prefix('admin/v1')->group(function () {
         Route::put('/tables/{id}', [TableController::class, 'update'])->middleware('permission:tables.update');
         Route::delete('/tables/{id}', [TableController::class, 'destroy'])->middleware('permission:tables.delete');
         Route::post('/tables/positions', [TableController::class, 'updatePositions'])->middleware('permission:tables.position');
+
+        // 排队管理
+        Route::get('/queues', [QueueController::class, 'index'])->middleware('permission:tables.view');
+        Route::get('/queues/{id}', [QueueController::class, 'show'])->middleware('permission:tables.view');
+        Route::post('/queues/call-next', [QueueController::class, 'callNext'])->middleware('permission:tables.update');
+        Route::post('/queues/{id}/seated', [QueueController::class, 'markSeated'])->middleware('permission:tables.update');
+        Route::post('/queues/{id}/cancel', [QueueController::class, 'cancel'])->middleware('permission:tables.update');
+        Route::post('/queues/{id}/adjust-position', [QueueController::class, 'adjustPosition'])->middleware('permission:tables.update');
+        Route::delete('/queues/batch', [QueueController::class, 'batchDelete'])->middleware('permission:tables.delete');
 
         // 菜品管理
         Route::get('/dishes', [DishController::class, 'index'])->middleware('permission:tables.view');

@@ -73,7 +73,9 @@ Route::prefix('v1')->group(function () {
 
         // 排队相关
         Route::post('/queue/join', [QueueController::class, 'join']);
+        Route::get('/queue/my', [QueueController::class, 'getMyQueue']);
         Route::get('/queue/{queueId}', [QueueController::class, 'getStatus']);
+        Route::post('/queue/{queueId}/cancel', [QueueController::class, 'cancel']);
 
         // 积分相关
         Route::get('/points', [PointController::class, 'getPoints']);

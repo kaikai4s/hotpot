@@ -11,6 +11,7 @@ namespace App\Console;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+use App\Models\Configuration;
 
 class Kernel extends ConsoleKernel
 {
@@ -38,9 +39,28 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->runInBackground();
 
-        // 每30分钟检查一次超时占用的桌位（超时时间从配置读取，默认4小时）
-        $schedule->command('tables:release-expired-occupations')
-            ->everyThirtyMinutes()
+        // 检查超时占用的桌位（执行频率从配置读取，默认1分钟）
+        $checkInterval = (int) Configuration::getValue('table_occupation_release_check_interval_minutes', 1);
+        $tableReleaseSchedule = $schedule->command('tables:release-expired-occupations')
+            ->withoutOverlapping()
+            ->runInBackground();
+        
+        // 根据配置的执行间隔设置执行频率
+        if ($checkInterval <= 1) {
+            $tableReleaseSchedule->everyMinute();
+        } elseif ($checkInterval <= 5) {
+            $tableReleaseSchedule->everyFiveMinutes();
+        } elseif ($checkInterval <= 10) {
+            $tableReleaseSchedule->everyTenMinutes();
+        } elseif ($checkInterval <= 30) {
+            $tableReleaseSchedule->everyThirtyMinutes();
+        } else {
+            $tableReleaseSchedule->hourly();
+        }
+
+        // 每5分钟检查一次超时的叫号排队（超时时间从配置读取，默认15分钟）
+        $schedule->command('queues:check-expired')
+            ->everyFiveMinutes()
             ->withoutOverlapping()
             ->runInBackground();
     }
