@@ -11,7 +11,7 @@
         <!-- 排队状态卡片 -->
         <div v-if="queueInfo" class="bg-white rounded-2xl shadow-xl p-8 mb-8">
           <div class="text-center">
-          <div class="text-6xl mb-4">🎫</div>
+          <div class="text-6xl mb-4">{{ queueInfo.status === 'cancelled' ? '❌' : '🎫' }}</div>
           <h2 class="text-3xl font-bold text-gray-900 mb-2">排队号：{{ queueInfo.queue_number }}</h2>
           <p class="mb-6">
             <span class="text-gray-600">当前状态：</span>
@@ -20,10 +20,22 @@
             </span>
           </p>
           
+          <!-- 已取消提示 -->
+          <div v-if="queueInfo.status === 'cancelled'" class="mb-6 p-4 bg-red-50 border-2 border-red-400 rounded-lg">
+            <p class="text-red-800 font-bold text-lg">❌ 您的排队已被取消</p>
+            <p class="text-red-700 text-sm mt-1">可能是因为超时未到店或被管理员取消，您可以重新排队</p>
+          </div>
+          
           <!-- 已叫号提示 -->
           <div v-if="queueInfo.status === 'called'" class="mb-6 p-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg">
             <p class="text-yellow-800 font-bold text-lg">🔔 您已被叫号，请尽快到店！</p>
             <p class="text-yellow-700 text-sm mt-1">请在{{ calledTimeoutMinutes }}分钟内到店，否则将重新排队</p>
+          </div>
+          
+          <!-- 已入座提示 -->
+          <div v-if="queueInfo.status === 'seated'" class="mb-6 p-4 bg-green-50 border-2 border-green-400 rounded-lg">
+            <p class="text-green-800 font-bold text-lg">✅ 您已入座</p>
+            <p class="text-green-700 text-sm mt-1">祝您用餐愉快！</p>
           </div>
           
           <!-- 进度条 -->
@@ -79,6 +91,15 @@
               class="px-8 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all disabled:opacity-50"
             >
               取消排队
+            </button>
+            <button
+              v-if="queueInfo.status === 'cancelled' || queueInfo.status === 'seated'"
+              @click="rejoinQueue"
+              :disabled="loading"
+              class="px-8 py-3 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg hover:from-green-600 hover:to-blue-600 transition-all transform hover:scale-105 disabled:opacity-50"
+            >
+              <span v-if="loading">处理中...</span>
+              <span v-else>重新排队</span>
             </button>
             <button
               @click="refreshQueue"
@@ -301,23 +322,25 @@ const refreshQueue = async () => {
     // apiClient响应拦截器返回的是response.data，所以直接使用response.code
     if (response.code === 200) {
       const newStatus = response.data;
-      // 如果排队不存在或状态变为已入座或已取消，停止自动刷新
-      if (!newStatus || newStatus.status === 'seated' || newStatus.status === 'cancelled') {
+      // 如果排队不存在，停止自动刷新
+      if (!newStatus) {
         stopAutoRefresh();
-      }
-      // 更新排队信息（保留所有字段）
-      if (newStatus) {
-        queueInfo.value = newStatus;
-        // 如果状态是等待中或已叫号，确保自动刷新在运行
-        if (newStatus.status === 'waiting' || newStatus.status === 'called') {
-          startAutoRefresh();
-        }
-        ElMessage.success('状态已更新');
-      } else {
-        // 排队不存在，清空状态
         queueInfo.value = null;
         ElMessage.info('您的排队已结束');
+        return;
       }
+      
+      // 更新排队信息
+      queueInfo.value = newStatus;
+      
+      // 根据状态处理自动刷新
+      if (newStatus.status === 'waiting' || newStatus.status === 'called') {
+        startAutoRefresh();
+      } else {
+        stopAutoRefresh();
+      }
+      
+      ElMessage.success('状态已更新');
     }
   } catch (error: any) {
     // 如果排队不存在，清空状态
@@ -329,6 +352,12 @@ const refreshQueue = async () => {
       ElMessage.error(error.response?.data?.message || error.message || '刷新失败');
     }
   }
+};
+
+// 重新排队
+const rejoinQueue = async () => {
+  queueInfo.value = null; // 清空当前排队信息，显示排队表单
+  ElMessage.info('请重新填写排队信息');
 };
 
 const startAutoRefresh = () => {

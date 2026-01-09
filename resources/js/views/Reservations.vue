@@ -18,6 +18,15 @@
         </div>
         <div class="flex gap-2">
           <el-button 
+            type="warning" 
+            size="large" 
+            @click="handleExport"
+            :loading="exporting"
+          >
+            <el-icon><Download /></el-icon>
+            导出数据
+          </el-button>
+          <el-button 
             v-if="selectedReservations.length > 0" 
             type="success" 
             size="large" 
@@ -322,13 +331,15 @@
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Refresh, View, Check, Delete } from '@element-plus/icons-vue';
+import { Refresh, View, Check, Delete, Download } from '@element-plus/icons-vue';
 import { useReservationStore } from '../stores/reservation';
 import { adminReservationApi } from '../api/admin/reservation';
+import { adminExportApi } from '../api/admin/export';
 import { configApi } from '../api/config';
 import type { Reservation } from '../types';
 
 const route = useRoute();
+const exporting = ref(false);
 
 const store = useReservationStore();
 
@@ -430,6 +441,23 @@ const handleSizeChange = (size: number) => {
 const refreshData = () => {
   fetchData();
   ElMessage.success('数据已刷新');
+};
+
+const handleExport = async () => {
+  exporting.value = true;
+  try {
+    await adminExportApi.exportReservations({
+      status: filters.value.status,
+      date_from: filters.value.date,
+      date_to: filters.value.date,
+    });
+    ElMessage.success('导出成功');
+  } catch (error: any) {
+    console.error('导出失败:', error);
+    ElMessage.error(error.message || '导出失败');
+  } finally {
+    exporting.value = false;
+  }
 };
 
 const viewDetail = async (reservation: Reservation) => {

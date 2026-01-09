@@ -1,8 +1,14 @@
 <template>
   <div class="p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-    <div class="mb-6">
-      <h1 class="text-3xl font-bold text-gray-800 mb-2">仪表盘</h1>
-      <p class="text-gray-600">实时监控餐厅运营数据</p>
+    <div class="mb-6 flex justify-between items-center">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">仪表盘</h1>
+        <p class="text-gray-600">实时监控餐厅运营数据 · {{ currentDate }}</p>
+      </div>
+      <el-button type="primary" @click="fetchStats" :loading="loading">
+        <el-icon class="mr-1"><Refresh /></el-icon>
+        刷新数据
+      </el-button>
     </div>
 
     <!-- 加载状态 -->
@@ -11,9 +17,9 @@
       <p class="mt-4 text-gray-600">加载中...</p>
     </div>
 
-    <!-- 统计卡片 -->
+    <!-- 统计卡片 - 第一行 -->
     <div v-if="!loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-      <div class="bg-white rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
+      <div class="bg-white rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer" @click="goTo('/admin/reservations')">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-gray-500 text-sm font-medium">今日预约</p>
@@ -28,20 +34,22 @@
         </div>
       </div>
 
-      <div class="bg-white rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
+      <div class="bg-white rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer" @click="goTo('/admin/orders')">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-gray-500 text-sm font-medium">待审核评价</p>
-            <p class="text-3xl font-bold text-orange-600 mt-2">{{ stats.pendingReviews }}</p>
-            <p class="text-xs text-gray-500 mt-1">需要处理</p>
+            <p class="text-gray-500 text-sm font-medium">今日订单</p>
+            <p class="text-3xl font-bold text-indigo-600 mt-2">{{ stats.todayOrders }}</p>
+            <p v-if="stats.ordersGrowth > 0" class="text-xs text-green-600 mt-1">↑ {{ stats.ordersGrowth }}% 较昨日</p>
+            <p v-else-if="stats.ordersGrowth < 0" class="text-xs text-red-600 mt-1">↓ {{ Math.abs(stats.ordersGrowth) }}% 较昨日</p>
+            <p v-else class="text-xs text-gray-500 mt-1">与昨日持平</p>
           </div>
-          <div class="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
-            <el-icon class="text-orange-600 text-2xl"><Star /></el-icon>
+          <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center">
+            <el-icon class="text-indigo-600 text-2xl"><ShoppingCart /></el-icon>
           </div>
         </div>
       </div>
 
-      <div class="bg-white rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
+      <div class="bg-white rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer" @click="goTo('/admin/queues')">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-gray-500 text-sm font-medium">当前排队</p>
@@ -70,17 +78,76 @@
       </div>
     </div>
 
+    <!-- 统计卡片 - 第二行 -->
+    <div v-if="!loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+      <div class="bg-white rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer" @click="goTo('/admin/reviews?status=pending')">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-gray-500 text-sm font-medium">待审核评价</p>
+            <p class="text-3xl font-bold text-orange-600 mt-2">{{ stats.pendingReviews }}</p>
+            <p class="text-xs text-orange-500 mt-1">需要处理</p>
+          </div>
+          <div class="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
+            <el-icon class="text-orange-600 text-2xl"><Star /></el-icon>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer" @click="goTo('/admin/users')">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-gray-500 text-sm font-medium">注册用户</p>
+            <p class="text-3xl font-bold text-cyan-600 mt-2">{{ stats.totalUsers }}</p>
+            <p class="text-xs text-cyan-500 mt-1">今日新增 +{{ stats.todayNewUsers }}</p>
+          </div>
+          <div class="w-16 h-16 bg-cyan-100 rounded-full flex items-center justify-center">
+            <el-icon class="text-cyan-600 text-2xl"><User /></el-icon>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer" @click="goTo('/admin/dishes')">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-gray-500 text-sm font-medium">在售菜品</p>
+            <p class="text-3xl font-bold text-pink-600 mt-2">{{ stats.activeDishes }}</p>
+            <p class="text-xs text-gray-500 mt-1">共 {{ stats.totalDishes }} 个菜品</p>
+          </div>
+          <div class="w-16 h-16 bg-pink-100 rounded-full flex items-center justify-center">
+            <el-icon class="text-pink-600 text-2xl"><Food /></el-icon>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer" @click="goTo('/admin/tables')">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-gray-500 text-sm font-medium">桌位使用</p>
+            <p class="text-3xl font-bold text-teal-600 mt-2">{{ stats.occupiedTables }}/{{ stats.totalTables }}</p>
+            <p class="text-xs text-teal-500 mt-1">使用率 {{ stats.tableUsageRate }}%</p>
+          </div>
+          <div class="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center">
+            <el-icon class="text-teal-600 text-2xl"><Grid /></el-icon>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 图表和列表 -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
       <!-- 最近预约 -->
       <div class="bg-white rounded-xl shadow-lg p-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">最近预约</h2>
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold text-gray-800">最近预约</h2>
+          <el-button link type="primary" @click="goTo('/admin/reservations')">查看全部</el-button>
+        </div>
         <div class="space-y-4">
           <div v-if="recentReservations.length === 0" class="text-center py-8 text-gray-500">
             暂无最近预约
           </div>
           <div v-for="reservation in recentReservations" :key="reservation.id" 
-               class="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-blue-50 transition-colors">
+               class="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer"
+               @click="goTo('/admin/reservations')">
             <div>
               <p class="font-semibold text-gray-800">{{ reservation.reservation_code }}</p>
               <p class="text-sm text-gray-600">{{ reservation.table?.name }} · {{ reservation.guest_count }}人</p>
@@ -95,7 +162,7 @@
         <h2 class="text-xl font-bold text-gray-800 mb-4">待处理事项</h2>
         <div class="space-y-4">
           <div v-if="pendingTasks.length === 0" class="text-center py-8 text-gray-500">
-            暂无待处理事项
+            🎉 暂无待处理事项
           </div>
           <div v-for="task in pendingTasks" :key="task.id"
                class="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-orange-50 transition-colors">
@@ -116,13 +183,37 @@
         </div>
       </div>
     </div>
+
+    <!-- 热销菜品排行 -->
+    <div v-if="!loading" class="bg-white rounded-xl shadow-lg p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-gray-800">🔥 热销菜品排行（本周）</h2>
+        <el-button link type="primary" @click="goTo('/admin/dishes')">管理菜品</el-button>
+      </div>
+      <div v-if="topDishes.length === 0" class="text-center py-8 text-gray-500">
+        暂无销售数据
+      </div>
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div v-for="(dish, index) in topDishes" :key="dish.id" 
+             class="flex items-center p-4 bg-gray-50 rounded-lg hover:bg-red-50 transition-colors">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center mr-3 font-bold"
+               :class="index === 0 ? 'bg-yellow-400 text-white' : index === 1 ? 'bg-gray-400 text-white' : index === 2 ? 'bg-orange-400 text-white' : 'bg-gray-200 text-gray-600'">
+            {{ index + 1 }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-gray-800 truncate">{{ dish.name }}</p>
+            <p class="text-sm text-gray-500">销量 {{ dish.sales_count }} 份</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Calendar, Star, Clock, Money, Loading } from '@element-plus/icons-vue';
+import { Calendar, Star, Clock, Money, Loading, Refresh, ShoppingCart, User, Food, Grid } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { useReservationStore } from '../stores/reservation';
 import { adminDashboardApi } from '../api/admin/dashboard';
@@ -141,10 +232,30 @@ const stats = ref({
   activeQueue: 0,
   todayRevenue: '0',
   revenueGrowth: 0,
+  todayOrders: 0,
+  ordersGrowth: 0,
+  totalUsers: 0,
+  todayNewUsers: 0,
+  activeDishes: 0,
+  totalDishes: 0,
+  occupiedTables: 0,
+  totalTables: 0,
+  tableUsageRate: 0,
 });
 
 const recentReservations = ref<Reservation[]>([]);
 const pendingTasks = ref<any[]>([]);
+const topDishes = ref<any[]>([]);
+
+const currentDate = computed(() => {
+  const now = new Date();
+  const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${weekDays[now.getDay()]}`;
+});
+
+const goTo = (path: string) => {
+  router.push(path);
+};
 
 const getStatusType = (status: string) => {
   const types: Record<string, string> = {
@@ -188,14 +299,24 @@ const fetchStats = async () => {
     if (response.code === 200 && response.data) {
       const data = response.data;
       stats.value = {
-        todayReservations: data.stats.today_reservations,
-        reservationsGrowth: data.stats.reservations_growth,
-        pendingReviews: data.stats.pending_reviews,
-        activeQueue: data.stats.active_queue,
-        todayRevenue: data.stats.today_revenue,
-        revenueGrowth: data.stats.revenue_growth,
+        todayReservations: data.stats.today_reservations || 0,
+        reservationsGrowth: data.stats.reservations_growth || 0,
+        pendingReviews: data.stats.pending_reviews || 0,
+        activeQueue: data.stats.active_queue || 0,
+        todayRevenue: data.stats.today_revenue || '0',
+        revenueGrowth: data.stats.revenue_growth || 0,
+        todayOrders: data.stats.today_orders || 0,
+        ordersGrowth: data.stats.orders_growth || 0,
+        totalUsers: data.stats.total_users || 0,
+        todayNewUsers: data.stats.today_new_users || 0,
+        activeDishes: data.stats.active_dishes || 0,
+        totalDishes: data.stats.total_dishes || 0,
+        occupiedTables: data.stats.occupied_tables || 0,
+        totalTables: data.stats.total_tables || 0,
+        tableUsageRate: data.stats.table_usage_rate || 0,
       };
       pendingTasks.value = data.pending_tasks || [];
+      topDishes.value = data.top_dishes || [];
     } else {
       ElMessage.error(response.message || '获取统计数据失败');
     }

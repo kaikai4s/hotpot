@@ -112,10 +112,20 @@ class QueueController extends Controller
                 ], 401);
             }
 
+            // 先查找活跃的排队（等待中或已叫号）
             $queue = \App\Models\Queue::where('user_id', $user->id)
                 ->whereIn('status', ['waiting', 'called'])
                 ->orderBy('created_at', 'desc')
                 ->first();
+
+            // 如果没有活跃排队，查找今天最近的已取消/已入座记录（让用户知道状态变化）
+            if (!$queue) {
+                $queue = \App\Models\Queue::where('user_id', $user->id)
+                    ->whereIn('status', ['cancelled', 'seated'])
+                    ->whereDate('created_at', today())
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+            }
 
             if (!$queue) {
                 return response()->json([
@@ -125,10 +135,32 @@ class QueueController extends Controller
                 ]);
             }
 
-            $status = $this->queueService->getQueueStatus($queue->id);
-
             // 获取叫号预留时间配置
             $calledTimeoutMinutes = (int) Configuration::getValue('queue_called_timeout_minutes', 15);
+
+            // 对于已取消/已入座的记录，不需要计算前面等待人数
+            if (in_array($queue->status, ['cancelled', 'seated'])) {
+                return response()->json([
+                    'code' => 200,
+                    'message' => 'success',
+                    'data' => [
+                        'queue_id' => $queue->id,
+                        'queue_number' => $queue->queue_number,
+                        'current_position' => $queue->position,
+                        'ahead_count' => 0,
+                        'estimated_wait_time' => 0,
+                        'status' => $queue->status,
+                        'guest_count' => $queue->guest_count,
+                        'table_type' => $queue->table_type,
+                        'joined_at' => $queue->joined_at?->toDateTimeString(),
+                        'called_at' => $queue->called_at?->toDateTimeString(),
+                        'seated_at' => $queue->seated_at?->toDateTimeString(),
+                        'called_timeout_minutes' => $calledTimeoutMinutes,
+                    ],
+                ]);
+            }
+
+            $status = $this->queueService->getQueueStatus($queue->id);
 
             return response()->json([
                 'code' => 200,

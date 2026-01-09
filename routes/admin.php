@@ -37,6 +37,7 @@ use App\Http\Controllers\Api\Admin\V1\AchievementTemplateController;
 use App\Http\Controllers\Api\Admin\V1\InvitationStatisticsController;
 use App\Http\Controllers\Api\Admin\V1\CheckinStatisticsController;
 use App\Http\Controllers\Api\Admin\V1\ShareStatisticsController;
+use App\Http\Controllers\Api\Admin\V1\ExportController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin/v1')->group(function () {
@@ -275,6 +276,16 @@ Route::prefix('admin/v1')->group(function () {
         Route::prefix('share-statistics')->group(function () {
             Route::get('/', [ShareStatisticsController::class, 'index'])->middleware('permission:users.view');
             Route::get('/statistics', [ShareStatisticsController::class, 'statistics'])->middleware('permission:users.view');
+        });
+
+        // 数据导出
+        Route::prefix('export')->group(function () {
+            Route::get('/orders', [ExportController::class, 'orders'])->middleware('permission:orders.view');
+            Route::get('/reservations', [ExportController::class, 'reservations'])->middleware('permission:reservations.view');
+            Route::get('/users', [ExportController::class, 'users'])->middleware('permission:users.view');
+            Route::get('/reviews', [ExportController::class, 'reviews'])->middleware('permission:reviews.view');
+            Route::get('/dishes', [ExportController::class, 'dishes'])->middleware('permission:dishes.view');
+            Route::get('/queues', [ExportController::class, 'queues'])->middleware('permission:queues.view');
         });
     });
 });

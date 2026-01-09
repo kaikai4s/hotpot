@@ -31,10 +31,9 @@ class QueueService
             $maxPosition = Queue::where('status', 'waiting')->max('position') ?? 0;
             $position = $maxPosition + 1;
 
-            // 生成排队号
+            // 生成排队号（格式：前缀 + 序号，如 C001）
             $prefix = $this->getQueuePrefix();
-            $number = Queue::whereDate('created_at', today())->count() + 1;
-            $queueNumber = $prefix . str_pad((string) $number, 3, '0', STR_PAD_LEFT);
+            $queueNumber = $this->generateQueueNumber($prefix);
 
             // 创建排队记录
             $queue = Queue::create([
@@ -48,6 +47,27 @@ class QueueService
 
             return $queue;
         });
+    }
+
+    /**
+     * 生成排队号（格式：前缀 + 序号，如 C001）
+     * 基于该前缀已有的最大序号 +1
+     */
+    private function generateQueueNumber(string $prefix): string
+    {
+        // 查找该前缀的最大序号
+        $lastQueue = Queue::where('queue_number', 'like', $prefix . '%')
+            ->orderByRaw('CAST(SUBSTRING(queue_number, 2) AS UNSIGNED) DESC')
+            ->first();
+
+        if ($lastQueue) {
+            $lastNumber = (int) substr($lastQueue->queue_number, 1);
+            $newNumber = $lastNumber + 1;
+        } else {
+            $newNumber = 1;
+        }
+
+        return $prefix . str_pad((string) $newNumber, 3, '0', STR_PAD_LEFT);
     }
 
     public function getQueueStatus(int $queueId): array

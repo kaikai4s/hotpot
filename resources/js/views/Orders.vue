@@ -18,6 +18,15 @@
         </div>
         <div class="flex gap-2">
           <el-button 
+            type="warning" 
+            size="large" 
+            @click="handleExport"
+            :loading="exporting"
+          >
+            <el-icon><Download /></el-icon>
+            导出数据
+          </el-button>
+          <el-button 
             v-if="selectedOrders.length > 0" 
             type="success" 
             size="large" 
@@ -297,8 +306,9 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Refresh, View, InfoFilled, Check, Delete } from '@element-plus/icons-vue';
+import { Refresh, View, InfoFilled, Check, Delete, Download } from '@element-plus/icons-vue';
 import { adminOrderApi, type Order } from '../api/admin/order';
+import { adminExportApi } from '../api/admin/export';
 
 const router = useRouter();
 
@@ -330,6 +340,7 @@ const selectedOrder = ref<Order | null>(null);
 const selectedOrders = ref<Order[]>([]);
 const unviewedCount = ref(0);
 const isManuallyUpdatingUnviewedCount = ref(false);
+const exporting = ref(false);
 
 const getStatusType = (status: string) => {
   const types: Record<string, string> = {
@@ -419,6 +430,23 @@ const handleSizeChange = (size: number) => {
 const refreshData = () => {
   fetchData();
   ElMessage.success('数据已刷新');
+};
+
+const handleExport = async () => {
+  exporting.value = true;
+  try {
+    await adminExportApi.exportOrders({
+      status: filters.value.status,
+      date_from: filters.value.date_from,
+      date_to: filters.value.date_to,
+    });
+    ElMessage.success('导出成功');
+  } catch (error: any) {
+    console.error('导出失败:', error);
+    ElMessage.error(error.message || '导出失败');
+  } finally {
+    exporting.value = false;
+  }
 };
 
 const fetchData = async () => {
