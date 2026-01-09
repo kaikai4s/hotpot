@@ -123,5 +123,25 @@ class User extends Authenticatable
     {
         return $this->hasMany(UserShare::class);
     }
+
+    public function birthday(): HasOne
+    {
+        return $this->hasOne(UserBirthday::class);
+    }
+
+    public function birthdayPrivilegeLogs(): HasMany
+    {
+        return $this->hasMany(BirthdayPrivilegeLog::class);
+    }
+
+    public function birthdayDessertVouchers(): HasMany
+    {
+        return $this->hasMany(BirthdayDessertVoucher::class);
+    }
+
+    public function productRedemptions(): HasMany
+    {
+        return $this->hasMany(ProductRedemption::class);
+    }
 }
 

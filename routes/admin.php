@@ -38,6 +38,8 @@ use App\Http\Controllers\Api\Admin\V1\InvitationStatisticsController;
 use App\Http\Controllers\Api\Admin\V1\CheckinStatisticsController;
 use App\Http\Controllers\Api\Admin\V1\ShareStatisticsController;
 use App\Http\Controllers\Api\Admin\V1\ExportController;
+use App\Http\Controllers\Api\Admin\V1\MemberDayController;
+use App\Http\Controllers\Api\Admin\V1\PointsMallController as AdminPointsMallController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin/v1')->group(function () {
@@ -286,6 +288,25 @@ Route::prefix('admin/v1')->group(function () {
             Route::get('/reviews', [ExportController::class, 'reviews'])->middleware('permission:reviews.view');
             Route::get('/dishes', [ExportController::class, 'dishes'])->middleware('permission:dishes.view');
             Route::get('/queues', [ExportController::class, 'queues'])->middleware('permission:queues.view');
+        });
+
+        // 积分商城管理
+        Route::prefix('mall')->group(function () {
+            Route::get('/products', [AdminPointsMallController::class, 'index'])->middleware('permission:points.view');
+            Route::get('/products/{id}', [AdminPointsMallController::class, 'show'])->middleware('permission:points.view');
+            Route::post('/products', [AdminPointsMallController::class, 'store'])->middleware('permission:points.update');
+            Route::put('/products/{id}', [AdminPointsMallController::class, 'update'])->middleware('permission:points.update');
+            Route::delete('/products/{id}', [AdminPointsMallController::class, 'destroy'])->middleware('permission:points.update');
+            Route::put('/products/{id}/status', [AdminPointsMallController::class, 'updateStatus'])->middleware('permission:points.update');
+            Route::get('/redemptions', [AdminPointsMallController::class, 'redemptions'])->middleware('permission:points.view');
+            Route::put('/redemptions/{id}/status', [AdminPointsMallController::class, 'updateRedemptionStatus'])->middleware('permission:points.update');
+        });
+
+        // 会员日配置管理
+        Route::prefix('member-day')->group(function () {
+            Route::get('/config', [MemberDayController::class, 'getConfig'])->middleware('permission:points.view');
+            Route::put('/config', [MemberDayController::class, 'updateConfig'])->middleware('permission:points.update');
+            Route::put('/override', [MemberDayController::class, 'setOverride'])->middleware('permission:points.update');
         });
     });
 });

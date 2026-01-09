@@ -13,7 +13,9 @@ use App\Http\Controllers\Api\V1\ComboController;
 use App\Http\Controllers\Api\V1\CouponController;
 use App\Http\Controllers\Api\V1\DishController;
 use App\Http\Controllers\Api\V1\InvitationController;
+use App\Http\Controllers\Api\V1\MemberPrivilegeController;
 use App\Http\Controllers\Api\V1\PointController;
+use App\Http\Controllers\Api\V1\PointsMallController;
 use App\Http\Controllers\Api\V1\PointTransactionController;
 use App\Http\Controllers\Api\V1\QueueController;
 use App\Http\Controllers\Api\V1\ReservationController;
@@ -148,6 +150,22 @@ Route::prefix('v1')->group(function () {
         Route::post('/shares', [ShareController::class, 'record']);
         Route::get('/shares/stats', [ShareController::class, 'stats']);
         Route::get('/shares', [ShareController::class, 'index']);
+
+        // 会员权益相关
+        Route::get('/member/privileges', [MemberPrivilegeController::class, 'index']);
+        Route::get('/member/privileges/stats', [MemberPrivilegeController::class, 'stats']);
+        Route::get('/member/birthday', [MemberPrivilegeController::class, 'getBirthday']);
+        Route::post('/member/birthday', [MemberPrivilegeController::class, 'setBirthday']);
+        Route::get('/member/birthday/privileges', [MemberPrivilegeController::class, 'getBirthdayPrivileges']);
+        Route::get('/member/member-day', [MemberPrivilegeController::class, 'getMemberDay']);
+        Route::get('/member/member-day/discount', [MemberPrivilegeController::class, 'getMemberDayDiscount']);
+
+        // 积分商城相关
+        Route::get('/mall/products', [PointsMallController::class, 'index']);
+        Route::get('/mall/products/{id}', [PointsMallController::class, 'show']);
+        Route::post('/mall/products/{id}/redeem', [PointsMallController::class, 'redeem']);
+        Route::get('/mall/redemptions', [PointsMallController::class, 'redemptions']);
+        Route::get('/mall/redemptions/{id}', [PointsMallController::class, 'redemptionDetail']);
     });
 });
 

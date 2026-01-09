@@ -29,6 +29,8 @@ const Queues = () => import('../views/Queues.vue');
 const AuditLogs = () => import('../views/AuditLogs.vue');
 const Lottery = () => import('../views/Lottery.vue');
 const Achievements = () => import('../views/Achievements.vue');
+const MallProducts = () => import('../views/MallProducts.vue');
+const MallRedemptions = () => import('../views/MallRedemptions.vue');
 
 // 前台页面
 const FrontendHome = () => import('../views/frontend/Home.vue');
@@ -185,6 +187,18 @@ const routes = [
     path: '/admin/achievements',
     name: 'Achievements',
     component: Achievements,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/admin/mall/products',
+    name: 'MallProducts',
+    component: MallProducts,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/admin/mall/redemptions',
+    name: 'MallRedemptions',
+    component: MallRedemptions,
     meta: { requiresAuth: true },
   },
   // 兼容旧路由，重定向到新路径
@@ -345,6 +359,31 @@ const routes = [
     path: '/frontend/achievements',
     name: 'FrontendAchievements',
     component: () => import('../views/frontend/Achievements.vue'),
+    meta: { requiresAuth: true },
+  },
+  // 会员权益相关
+  {
+    path: '/frontend/privileges',
+    name: 'FrontendPrivileges',
+    component: () => import('../views/frontend/MemberPrivileges.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/frontend/mall',
+    name: 'FrontendMall',
+    component: () => import('../views/frontend/PointsMall.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/frontend/mall/:id',
+    name: 'FrontendMallDetail',
+    component: () => import('../views/frontend/PointsMall.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/frontend/redemptions',
+    name: 'FrontendRedemptions',
+    component: () => import('../views/frontend/Redemptions.vue'),
     meta: { requiresAuth: true },
   },
 ];

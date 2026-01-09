@@ -96,6 +96,12 @@
                 <el-menu-item index="/admin/achievements" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
                   <span>成就管理</span>
                 </el-menu-item>
+                <el-menu-item index="/admin/mall/products" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+                  <span>积分商城</span>
+                </el-menu-item>
+                <el-menu-item index="/admin/mall/redemptions" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+                  <span>兑换管理</span>
+                </el-menu-item>
               </el-sub-menu>
               <el-sub-menu index="coupons-menu" class="sub-menu-custom">
                 <template #title>
@@ -232,6 +238,12 @@
                 </el-menu-item>
                 <el-menu-item index="/admin/achievements" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
                   <span>成就管理</span>
+                </el-menu-item>
+                <el-menu-item index="/admin/mall/products" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+                  <span>积分商城</span>
+                </el-menu-item>
+                <el-menu-item index="/admin/mall/redemptions" class="mb-2 rounded-lg hover:bg-gray-700 transition-all">
+                  <span>兑换管理</span>
                 </el-menu-item>
               </el-sub-menu>
               <el-sub-menu index="coupons-menu" class="sub-menu-custom">

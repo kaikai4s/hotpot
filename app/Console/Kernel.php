@@ -63,6 +63,18 @@ class Kernel extends ConsoleKernel
             ->everyFiveMinutes()
             ->withoutOverlapping()
             ->runInBackground();
+
+        // 每天早上9点发送生日提醒（提前7天）
+        $schedule->command('birthday:send-reminders --days=7')
+            ->dailyAt('09:00')
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // 每天晚上8点检查是否需要发送会员日提醒（会员日前1天）
+        $schedule->command('member-day:send-reminders')
+            ->dailyAt('20:00')
+            ->withoutOverlapping()
+            ->runInBackground();
     }
 
     protected function commands(): void

@@ -24,9 +24,19 @@ class PointService
 {
     public function __construct(
         private PointRuleService $ruleService,
-        private PointExpirationService $expirationService
+        private PointExpirationService $expirationService,
+        private ?MemberPrivilegeService $privilegeService = null
     ) {
     }
+
+    /**
+     * 设置会员权益服务（用于延迟注入）
+     */
+    public function setPrivilegeService(MemberPrivilegeService $privilegeService): void
+    {
+        $this->privilegeService = $privilegeService;
+    }
+
     public function getPoints(User $user): MemberPoint
     {
         // 获取默认段位（最低积分的段位）
@@ -131,11 +141,48 @@ class PointService
             return null; // 已经发放过积分，不再重复发放
         }
 
-        // 计算应得积分
-        $points = $this->ruleService->calculatePointsFromOrder($user, (float) $order->total_amount);
+        // 计算基础积分
+        $basePoints = $this->ruleService->calculatePointsFromOrder($user, (float) $order->total_amount);
         
-        if ($points <= 0) {
+        if ($basePoints <= 0) {
             return null;
+        }
+
+        // 应用生日和会员日积分加成
+        $points = $basePoints;
+        $sourceTag = null;
+        
+        if ($this->privilegeService) {
+            $multiplier = $this->privilegeService->calculateFinalPointsMultiplier($user);
+            if ($multiplier > 1.0) {
+                $points = (int) floor($basePoints * $multiplier);
+                
+                // 确定来源标记
+                $birthdayService = app(BirthdayPrivilegeService::class);
+                $memberDayService = app(MemberDayService::class);
+                
+                $isBirthday = $birthdayService->isBirthday($user);
+                $isMemberDay = $memberDayService->isMemberDay();
+                
+                if ($isBirthday && $isMemberDay) {
+                    $sourceTag = 'birthday_member_day';
+                } elseif ($isBirthday) {
+                    $sourceTag = 'birthday';
+                } elseif ($isMemberDay) {
+                    $sourceTag = 'member_day';
+                }
+            }
+        }
+
+        $description = "订单支付获得积分（订单号：{$order->order_no}）";
+        if ($sourceTag) {
+            $bonusPoints = $points - $basePoints;
+            $description .= match($sourceTag) {
+                'birthday' => "（生日双倍，额外+{$bonusPoints}）",
+                'member_day' => "（会员日加成，额外+{$bonusPoints}）",
+                'birthday_member_day' => "（生日+会员日，额外+{$bonusPoints}）",
+                default => '',
+            };
         }
 
         return $this->earnPoints(
@@ -143,7 +190,7 @@ class PointService
             $points,
             'order',
             $order->id,
-            "订单支付获得积分（订单号：{$order->order_no}）"
+            $description
         );
     }
 

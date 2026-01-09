@@ -13,6 +13,7 @@ use App\Helpers\LoggerHelper;
 use App\Models\Order;
 use App\Models\PointTransaction;
 use App\Models\UserInvitation;
+use App\Services\BirthdayPrivilegeService;
 use App\Services\DepositService;
 use App\Services\InvitationService;
 use App\Services\PointService;
@@ -25,7 +26,8 @@ class OrderObserver
         private PointService $pointService,
         private DepositService $depositService,
         private InvitationService $invitationService,
-        private TaskService $taskService
+        private TaskService $taskService,
+        private BirthdayPrivilegeService $birthdayPrivilegeService
     ) {
     }
 
@@ -269,6 +271,9 @@ class OrderObserver
                     'error' => $e->getMessage(),
                 ]);
             }
+
+            // 生日特权：订单支付时自动发放生日甜品券
+            $this->issueBirthdayDessertVoucherIfEligible($order);
         }
 
         // 订单取消时，如果有使用积分抵扣，需要解冻积分
@@ -399,6 +404,60 @@ class OrderObserver
                     'error' => $e->getMessage(),
                 ]);
             }
+        }
+    }
+
+    /**
+     * 生日特权：订单支付时自动发放生日甜品券
+     * 如果用户今天生日且今年未领取甜品券，自动发放
+     */
+    private function issueBirthdayDessertVoucherIfEligible(Order $order): void
+    {
+        try {
+            $user = $order->user;
+            if (!$user) {
+                return;
+            }
+
+            // 检查今天是否是用户生日
+            if (!$this->birthdayPrivilegeService->isBirthday($user)) {
+                return;
+            }
+
+            // 检查今年是否已领取甜品券
+            if ($this->birthdayPrivilegeService->hasBirthdayDessertThisYear($user)) {
+                return;
+            }
+
+            // 发放生日甜品券
+            $voucher = $this->birthdayPrivilegeService->issueBirthdayDessertVoucher($user);
+            
+            if ($voucher) {
+                LoggerHelper::orderInfo('生日甜品券已自动发放', [
+                    'order_id' => $order->id,
+                    'order_no' => $order->order_no,
+                    'user_id' => $user->id,
+                    'voucher_id' => $voucher->id,
+                    'voucher_code' => $voucher->code,
+                    'expires_at' => $voucher->expires_at->toDateTimeString(),
+                ]);
+                Log::info('生日甜品券已自动发放', [
+                    'order_id' => $order->id,
+                    'order_no' => $order->order_no,
+                    'user_id' => $user->id,
+                    'voucher_id' => $voucher->id,
+                ]);
+            }
+        } catch (\Exception $e) {
+            LoggerHelper::orderError('生日甜品券发放失败', [
+                'order_id' => $order->id,
+                'user_id' => $order->user_id,
+                'error' => $e->getMessage(),
+            ]);
+            Log::error('生日甜品券发放失败', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }
